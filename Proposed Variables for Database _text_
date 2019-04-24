@@ -1,0 +1,579 @@
+Proposed Variables for Database
+
+Table of contents
+
+Section 1: Overview of the database
+Section 2: Database variables
+Section 3: Included events and aircraft models
+Section 4: Definitions
+
+Section 1: Overview of the database 
+This database contains information from selected aircraft accident and incidents that have occurred from 1997 to the present. Each record contains information for up to 51 variables.
+The database is contained in a spreadsheet, and each row or record represents an event involving a specific aircraft, as well as information that would describe the circumstances of the flight; the damage, injuries, or deaths that may have occurred during the flight; and the kind of accident or incident investigation conducted for the event. If an event involved multiple aircraft, there would be a separate row or record for each aircraft. 
+
+The primary purpose of the database is to provide specific details about accidents and incidents that meet a specific set of criteria, and that also involve a selected range of aircraft models. Other aircraft models may be included for multiple aircraft events if at least one of the aircraft involved was from an aircraft model of interest. Refer to section 3 for both the inclusion criteria and a list of selected models.
+
+Treatment of missing and unknown values
+In general, if a value is allowed to be missing or unknown, it will have a standard value for that data type. For example:
+Character: X’’ if a single-character variable, multiple ‘X’s if multiple character code
+Number: ‘9’ if a single number used for variable, two or more ‘9’s if multiple numbers are used
+
+Section 2: Database variables
+The following table contains the proposed variables for the spreadsheet of aircraft events. The table contains the variable name as it may appear within a data analysis program, a short description of the variable, the type of data used for that variable, and additional information about the variable.
+
+Coding conventions
+For each event in the database, variables will contain one of four kinds of data, numbers, categorical variables with codes associated with the state or category of those variables, or characters (a mix of numbers, letters, and punctuation marks) in a specified format, or narrative variables such a the Notes section of each record.
+
+None of the fields will be blank. If data is missing or unknown they will have specific numbers or codes that will indicate that status of that particular value:
+
+Categorical variables using characters will use one or more ‘Xs’ to represent missing data, data that is not relevant, or not applicable.
+ Categorical variables using numbers will use one or more ‘9s’ to represent missing data.
+
+
+Variable Name
+Short description
+Data type
+Notes
+Event.ID
+Unique Identification for Each Event
+Character
+Each event is assigned a unique alphanumeric code in the database. This code, used in conjunction with other primary keys (if applicable), are used to reference all database records. All database queries using a relational database (e.g., MS Access) should link tables using the Event.ID variable. 
+
+Format: R<year><event number><aircraft number within the event>, or RYYYAAABB.  The ‘R’ is for Russell, the first four numbers for the year (YYYY), the next three numbers are a running tally of events within that year (AAA), and the last two numbers indicate the aircraft number in the event (BB).
+
+For an event that only involve one aircraft, BB will simply be the numbers 01. For a midair collision involving two aircraft, BB would be 01 for the first aircraft and 02 for the second. 
+
+For multiple aircraft events, the 01 designation would be assigned using the following criteria (in order): included model, most recent manufacturing year, most recent certification year, highest serial number (if same model), alphabetical by registration number.
+Event.Date
+Date of occurrence
+Character
+Date of the accident or event. Date format <day>-<month>-<year> with day as a one or two digit number, month spelled out fully, and four numbers for year, and with two dashes separating the three values. The date used will be based on the UTC time of the event.
+Event.Type
+Type of event
+Character (category)
+One or two character code that describes the category of event.
+
+Codes:
+AF - Fatal accident
+AN - Nonfatal accident
+DF - Fatal deliberate action
+DN - Nonfatal deliberate action
+MF - Fatal military related
+MN - Nonfatal military related
+NF - Fatal others only
+NN - Nonfatal accident only others are seriously injured or killed
+XX - Unknown/Missing information
+Operator.Category
+Aircraft operator category
+Character (categorical)
+A single-character variable that describes the category of the flight operation.
+
+Codes:
+A - Airline passenger (include combination of passenger with all cargo or with combi aircraft)
+C - Airline cargo
+D - Charter, air taxi, or on-demand passenger
+G - General aviation
+M - Military
+P - Government (non-military, public use)
+W - Other flight operation
+X - Unknown
+Aircraft.Type
+Category of aircraft
+Character (categorical)
+A single-character code that describes the category of the aircraft.
+
+Codes:
+A - Large jet single aisle
+B - Large jet multiple aisle
+C - Regional jet
+D - Regional turboprop
+E - Other jet 
+F - Other prop driven 
+G - Helicopter
+H - Other aircraft
+X - Unknown 
+
+Note: Codes A and B will be used for cargo versions of passenger aircraft or for cargo conversions.
+Event.Time
+Time of occurrence 
+Number
+Time using a 24-hour format where the time specifically refers to the UTC time of the  initiating event that led to the occurrence. Use ‘9999’ if time is missing or unknown. Note that in formatting in spreadsheet programs such as Google Sheets, one should use a customized number format to retain leading zeros.
+Tail.Number
+The aircraft registration or tail number
+Character
+The tail number or identification number assigned to the aircraft. For an unknown or missing tail number, use ‘XXX’
+Flight.Phase
+Phase of flight where event occurred
+Character (category)
+One or two character code that describes either the phase of flight when the initiating circumstances or actions that led to event occurred.
+
+Codes:
+PP - Parked (including any time when the aircraft is stationary during taxi, pushback, tow, or other ground movement)
+TN - Taxi or tow not flight related
+TT - Taxi, tow, or pushback related to a flight
+LU - Loading or unloading
+TG - Takeoff (until gear retracted)
+CF - Initial climb (until flaps retracted)
+CL - Initial climb to cruise altitude
+ER - En route (unspecified phase between Initial Climb and Final Approach)
+CR - Cruise
+DC- Descent
+AG - Initial approach (gear and flaps up)
+AF - Final approach (gear or flaps down)
+LG - Landing
+RG - Repositioning on the ground (not related to a flight operation)
+SC - Storage in a covered or enclosed location
+ST - Storage in an outside location
+MT - Maintenance related activity
+XX - Unknown flight phase
+Flight.Purpose
+Purpose of the flight 
+Character (category)
+A two-character variable that indicates the type of flight operation. 
+
+Codes:
+AP - Airline passenger flight
+AC - Airline cargo flight
+AN - Other airline flight (including combi)
+CP - Non-airline passenger flight
+CC -  Non-airline cargo flight
+FT - Flight test and evaluation, including ground testing
+RF - Repositioning, ferry flight, training, and demonstration
+MH - Military and potentially hostile
+MN - Military and not potentially hostile, including test, training, ferry, demonstration, and transport of personnel or material
+UF - Unauthorized flight (eg, stolen aircraft or unauthorized person operating the aircraft)
+GV - Public safety, public use, and other government related flights
+GA - General aviation flight 
+AT - On demand air taxi 
+SR - Scientific or research
+NF - Not flight related
+XX - Unknown type and operation or missing information
+Event.Country
+Country of geographic area of occurrence
+Character
+Country where the event occurred, or when the initiating conditions that led to the event occurred. If the location was not over a recognized country, then use an appropriate geographic location. If unknown, use ‘XXX’.
+Event.Location
+City, airport, or other identifiable geographic area associated with the event
+Character
+The city or geographic area where the event took place, plus the country name. If unknown, use ‘XXX’. For locations in the United States or Canada, state or province codes in place of country name.
+Event.IATA
+IATA airport code of the event location
+Character
+Three-letter IATA airport code of event location. Use this code if the event is at or immediately adjacent to an airport. If the event did not happen at an airport, or If the location is unknown, use ‘'XXX'.
+Origin
+Location where flight originates
+Character
+Location of departure airport (or location of the event if not flight related).  If the location is unknown, use ‘XXX’. For locations in the United States or Canada, state or province codes in place of country name
+Origin.IATA
+IATA code of origin airport
+Character
+Three-letter IATA code for the origin airport.If the location is unknown, or does not have an IATA code assigned, use 'XXX'.
+Destination
+Planned destination
+Characters
+Destination that was planned before the flight. If appropriate, using a combination of a location and a country. For locations in the United States or Canada, use state or province codes in place of country name. Use ‘XXX’ in the following circumstances: unknown destination, information missing, and for  non-flight related events.. 
+Destination.IATA
+IATA code of planned destination
+Characters
+Three-letter IATA code for the destination airport. Use ‘XXX’ in the following circumstances: unknown destination, information missing, no IATA code assigned, and for  non-flight related events.
+Flight.End
+Location where the flight ended
+Characters
+For airports, or the immediate airport vicinity, use the three-letter IATA code for that airport. For off airport location, including an inflight destruction of the aircraft, use closest city, town, or geographical feature (for an airport location, use 'XXX' if the airport is unknown or  if the airport has no code assigned). 
+Damage.severity
+Amount of damage
+Number
+A percentage that denotes the actual or estimated amount of loss of value for that aircraft. A value of 100 is given to any aircraft that is either missing, completely destroyed, or determined to be a total (100%) hull loss by an insurance company, or that is never returned to service. A value of zero is given to an aircraft that has no physical damage or that only has routine maintenance after an event. For an undetermined or unknown amount of damage, use ‘999’. The Notes section should describe how that any estimated value was derived.
+Loss.Severity
+Insurance industry categorization of loss
+Character (category)
+A single-character variable that indicates the insurance industry categorization of the monetary loss of associated with this aircraft.
+
+Codes:
+M - Major loss (loss with a combined monetary value of $5M or greater, where there were at least 10 casualties, or that meets other conditions that are detailed in the Definitions section)
+A - Attrition loss ((generally, a loss with a combined monetary value of less than $5M, or that meets other conditions that are detailed in the Definitions section)
+E - Currently being evaluated by insurer or insurers
+U - No aircraft damage (The aircraft was either not damaged, or the damage was addressed by routine maintenance, and the event otherwise did not cause effects that would fit the definition of a Major or Attrition loss)
+X- Unknown, information not available, aircraft not in list of models of interest, or not relevant because the aircraft owner is a military organization or government agency. 
+International.Flight
+Indication of an international flight
+Character (category)
+A single-character variable that indicates if the intended departure and arrival locations were in different countries.
+
+Codes:
+Y - International flight
+N - Domestic flight
+
+
+Passenger.Flight
+Indicates if flight open to the public
+Character (category)
+A single-character variable that indicates if a member of the general public could have purchased a ticket for the flight.
+
+Codes:
+P - Passenger flight
+C - Cargo only flight 
+M - Combi flight (passengers plus dedicated main deck cargo)
+N - Other non-passenger flight operation
+X - Unknown/Other
+Scheduled.Flight
+Whether a flight was scheduled
+Character (category)
+A single-character variable that indicates if the flight was scheduled or unscheduled.
+
+Codes:
+Y - Scheduled flight
+N - Unscheduled flight
+X - Unknown/Other
+Event.Special
+Noteworthy or unique event
+Character (categorical)
+A single-character code
+associated with a noteworthy event,  for example an event involving multiple aircraft (such as a midair collision,  9/11, or a hailstorm), 
+
+Codes:
+C - Collision with an aircraft, vehicle, person, structure, wildlife, or other objects
+D - Deliberate action
+B - Bomb or incendiary device
+H - Hijacking
+M - Military action
+S - Sabotage
+T - Tail strike or other contact between aircraft structure and the ground that occurs during takeoff or landing
+W - Weather related, including volcanic ash event in the air or on the ground
+X - No special circumstances
+Aircraft.Manufacturer
+Aircraft manufacturer
+Character
+Aircraft manufacturer that held the type certificate at the time that model entered operational service.  If the manufacturer information is missing or unknown, use code ‘XXX’.
+Aircraft.Model
+Aircraft model
+Character
+The aircraft model and designation at the time of certification.  If the model information is missing or unknown, use code ‘XXX’.
+Aircraft.Submodel
+Specific aircraft submodel
+Character
+The submodel or dash number associated with that particular aircraft. If there is no submodel, or if the submodel information is missing or unknown, use code ‘XXX’.
+Aircraft.Cert.Year
+Year aircraft certified
+Number
+Year that the particular submodel was first certified for commercial use, or if a strictly military aircraft, the first year of operation. For an unknown year, use ‘9999’
+Production.Year
+Year aircraft was built
+Number
+Year that the aircraft was manufactured. For an unknown year, use ‘9999’
+Registration.Country
+Country of registration
+Character
+Country of registration. For an unknown country of registration, use ‘XXX’
+Serial.Number
+Aircraft serial or production number
+Character
+Unique production or line number assigned by the aircraft manufacturer. If unknown or missing, use ‘XXX’
+Original.Operator
+Indication of new or used aircraft
+Character (category)
+A single-character variable that indicates if the aircraft operator was the first entity to put this aircraft into operational service. This could be the case if  there have been several changes in operator and both first and current operator is the same entity. 
+Codes:
+Y - Original operator
+N - Second or subsequent operator
+X - Unknown
+Engine.Type
+Type of engine
+Character (category)
+A single-character variable that describes the category of the engine.
+
+Codes:
+1 - Turbofan
+2 - Turbojet
+3 - Turboprop
+4 - Piston
+5 - Other
+9 - Unknown
+Engine.Manufacturer
+Engine manufacturer
+Character
+Company that designed the engine.  If unknown or missing, use ‘XXX’.
+Engine.Model
+Model of the aircraft engine
+Character
+General model of aircraft engine.  If unknown or missing, use ‘XXX’.
+Engine.submodel
+Submodel of the engine used
+Character
+Submodel or dash number of the engine used.  If unknown or missing, use ‘XXX’.
+Operator.Name
+Aircraft operator name
+Character
+Name of the airline or other entity operating the aircraft.  If unknown or missing, use ‘XXX’.
+Operator.Country
+Country of registration for operator
+Character
+Country where the aircraft operator is registered. If unknown or missing, use ‘XXX’.
+Total.Crew
+Total crew members
+Number
+Total number of cabin and cockpit crew members (including reserve members for long flights but excluding deadheading crew members. 
+
+Note: Any unknown number for number of crews or passengers in any category will be listed as number ‘999”
+Crew.Deaths
+Number of crew members killed
+Number
+Number of crew members killed as a result of injuries directly caused by the circumstances of the event.
+
+See definition of Death in the Definitions section.
+
+Note: Any unknown or missing value will be listed as number ‘999”
+Crew.Serious.Injuries
+Number of serious crew injuries
+Number
+Number of serious injuries to crew members directly caused by the circumstances of the event.  
+
+See definition of Serious Injury in the Definitions section. 
+
+Note: Any unknown or missing value will be listed as number ‘999”
+Total.Passengers
+Total number of passengers
+Number
+Total number of passengers (excluding stowaways, saboteurs, and hijackers). 
+
+Note: Any unknown or missing value will be listed as number ‘999”
+Passenger.Deaths
+Number of passengers killed
+Number
+Number of passengers killed as a result of the circumstances of the event.
+
+See definition of Death in the Definitions section.
+
+Note: Any unknown or missing value will be listed as number ‘999”
+Passenger.Serious.Injuries
+Number of serious passenger injuries
+Number
+Number of serious injuries to passengers directly caused by the circumstances of the event.  
+
+See definition of Serious Injury in the Definitions section.
+
+Note: Any unknown or missing value will be listed as number ‘999”
+Other.Deaths
+Total number of non-crew and non-passner deaths
+Number
+Total number of non-passengers and non crew members killed. Also self-inflicted deaths of persons onboard the aircraft such as a passenger or crew member suicide would be in this category.
+
+See definition of Serious Injury in the Definitions section.
+
+Note: Any unknown or missing value will be listed as number ‘999”
+
+Categories for Other.Deaths:
+
+Persons on board the aircraft: stowaways, saboteurs, hijackers, suicides that led in part or in whole to the event.
+
+Persons outside the aircraft: ground crew members, persons on other aircraft (unless that aircraft is also in the database), and other persons on the ground.
+Other.Serious.Injuries
+Number of serious non-passenger and non-crew injuries
+Number
+Number of serious injuries to non-passengers and non-crew members directly caused by the circumstances of the event.Also self-inflicted injuries of persons onboard the aircraft such as a passenger or crew member suicide would be in this category.  The circumstances of any such injuries should be explained in the Notes section.
+
+See definition of Serious Injury in the Definitions section.
+
+Note: Any unknown or missing value will be listed as number ‘999”
+Total.Deaths
+Total number of deaths
+Number
+Total deaths among passengers, crew, and others. If the event involved multiple aircraft, each death must be apportioned to a particular aircraft, and if necessary there should be an explanation in the Notes section.
+
+Note: Any unknown or missing value will be listed as number ‘999”
+Total.Serious.Injuries
+Total number of serious injuries
+Number
+Total serious injuries among passengers, crew, and others. If the event involved multiple aircraft, each serious injury must be apportioned to a particular aircraft, and if necessary there should be an explanation in the Notes section.
+
+Note: Any unknown or missing value will be listed as number ‘999”
+Investigating.Authority
+Name of investigating authority
+Character
+Name or acronym for the investigating authority. If no information is available about an investigation, use  'XXX'.
+Investigation.Status
+Status of any present or past investigation
+Character (category)
+A one-character variable (Y/N) variable that indicates if there are any ongoing, completed, or stalled investigations. It would also indicate if there are more than one investigation for the event. The Notes section should include sufficient reference or bibliographic information for any interim or final report.
+
+Codes:
+1 - Investigation completed
+2 - Active investigation
+9 - Unknown/Other
+Probable.Cause
+Probable cause of the event
+Character
+A description of the findings of the primary cause or causes of the event as stated in the report of any formal investigation of the event. This would include the presence of hijackers, saboteurs, and stowaways involved in the event.
+Notes
+Additional notes
+Character
+Synopsis of the circumstances associated with the aviation event bibliographic information on any published reports, plus any additional pertinent information. This would include the presence of hijackers, saboteurs, and stowaways involved in the event.
+
+
+
+
+
+
+Section 3: Included events and aircraft models
+The previous section defined both the variables used to describe the included event, as well as the format and coding used to summarize the details of each event.
+
+Because the purpose of the database is to to look for patterns in airline accidents and incidents that may be of interest to the aviation insurance community, the focus of the database is on events that are relevant to the portion of the airline industry that has the greatest potential for events that could potentially lead to significant payouts, which would be primarily, but not exclusively, events involving jet transport aircraft, as well as smaller aircraft such as turboprop aircraft that are used regularly in airline service by the major air carriers of the world.
+
+Events would be included in the database if the event itself met or exceeded certain levels of damage to the aircraft, or of injury to persons inside of or outside of the aircraft. The aircraft and injury requirements will be addressed separately below.
+
+Injury and damage requirements
+Two leading and influential aviation organizations, the NTSB and ICAO, provide guidance as to what kinds of events are of interest when it come to aviation safety, and they form a foundation for what should be included in this database.
+
+NTSB focus is driven by regulatory requirements (Code of Federal Regulations, Title 49 Part 830) for reporting certain kinds of events. Among them are events causing substantial aircraft damage or fatal or serious injury to persons on board the aircraft. ICAO through Annex 13 of the Convention of International Civil Aviation has similar definitions for accidents and serious injuries. 
+
+Both organizations focus on events that occur related to flight operations and would exclude events that happen during storage, maintenance, and other ground activities.
+
+Given the focus on the database is on events that may be of interest to the insurance industry, the NTSB and ICAO definitions for accidents, aircraft damage, and serious injury should be the minimum requirements for inclusion, with other events being included if it would reasonably be of interest to the entities that insure the aircraft or the aircraft operator.
+
+
+Generally included events:
+Any event that results in the destruction of the aircraft or in damage beyond economic repair.
+Engine damage events involving only the engine, engine cowling, engine strut, or nacelle due to outside influences such as; ingestion of foreign object debris (FOD) such as birds, other wildlife, hail, soil, rocks, or trees; engines striking the runway or ground; impacting vehicles, buildings, or other objects.
+Uncontained engine events that involve penetration of the nacelle or sidewall by fan blades and other machinery inside the engine, or a burn through of the nacelle or cowling cause by some kind of some kind of heat or fire event within the engine. 
+Several types of engine damage events that do not involved an uncontained failure, such as damage caused to the engine cowling or nacelle; ingestion of foreign object debris (FOD) such as birds, other wildlife, hail, soil, rocks, or trees.
+Any event that causes significant damage to critical aircraft systems or structure that must be repaired before the following flight (excluding damage limited to the landing gear)
+Any accident, that results in the death of a passenger from other than natural causes or deliberate actions (deaths from sabotage, hijacking, military actions, or other non-accidental deaths excluded)
+Any damaging aircraft collision, including collisions with the ground, runways, other aircraft, vehicles, animals, birds, trees, buildings, antennas, other structures attached to the ground, and ground support equipment (fixed or mobile). 
+Near collisions with a high likelihood of catastrophic loss of one or more aircraft
+Tail strikes that involve an aircraft with a specific feature like a tail skid that is designed to absorb minor damage without needing repairs would normally be excluded if the level of damage is low enough, but may be included if other factors make the event relevant to evaluating significant risks involving that aircraft model, aircraft operator, aircraft operation, or airport.
+
+
+Generally excluded events 
+Those where there was either no damage or the damage was limited to landing gear (unless there was a need to totally replace one or more landing gear) and engines (including contained failures) and where the event was resolved  without causing further actual or potential harm or risk using appropriate normal, non-normal, and emergency procedures by the flight crew, cabin crew, ATC, emergency personnel, and others directly involved with the event and its aftermath. 
+Several types of contained engine damage events that would still be included, such as damage caused to the engine cowling or nacelle; ingestion of foreign object debris (FOD) such as birds, other wildlife, hail, soil, rocks, or trees.
+Non-fatal turbulence-related events with no damage to non-critical structures or systems
+Non-damaging and non-fatal events related to worker safety that involve flight crews, cabin crews, maintenance technicians, ground support staff, and other support staff.
+Tail strikes where the aircraft has a specific design feature such as a tail skid that is designed to withstand damage that is minor enough to allow dispatch (after an appropriate inspection) without repairs. 
+
+
+
+Models to be included in the database
+While a broad range of events may be relevant to for understanding general airline safety issues, only events including the following aircraft models will be added to the database (updated 16 January 2018):
+
+
+Manufacturer
+Aircraft Model
+Airbus
+A220, A300, A310, A318, A319, A320, A321, A330, A340, A350, A350, A380
+ATR
+ATR 42, ATR 72
+BAE SYSTEMS (Avro)
+146, ATP, Avro RJ
+Boeing
+707, 717, 720, 727, 737, 747, 757, 767, 777, 787
+Boeing (McDonnell-Douglas)
+DC-8, DC-9, DC-10, MD-10, MD-11, MD-80, MD-90
+Bombardier (Canadair)
+Challenger, CRJ, Global 5000, Global 6000, Global Express
+Bombardier (de Havilland)
+Dash 8
+Embraer
+120, 135, 140, 145, 170, 175, 190, 195
+Fairchild/Dornier
+D328, D328Jet
+Fokker
+F28, F50, F70, F100
+Lockheed
+L-1011
+Saab
+340, 2000
+Sukhoi
+Superjet 100
+COMAC
+ARJ21
+
+Note 1: The database may include aircraft models not on this list. That may be for two reasons, either that aircraft was involved in a multiple aircraft event where at least one of the aircraft was included in the above listing, or that aircraft model was included in a previous version of this list. 
+
+Note 2: Variations of all the above models will also be included. For example, the MD-80 family of models includes the MD-81 and MD-83, and Avro RJ family of models includes the RJ70 and RJ85. Also included would be military variants of the above models. In a side note, the KC135 is not a variant of the 707, so will not be included
+Exceptions for multiple aircraft events
+Events that otherwise would not fit the criteria given above would be included in the database if it were part of a multiple aircraft event that involved an aircraft that met the criteria for inclusion. For example, for a midair collision involving a small general aviation aircraft and a large jet airliner where the jet had damage or inclusion that merited inclusion in the database, the general aviation aircraft would also be included, regardless of the injuries and damage to that aircraft.
+
+If a multiple aircraft event  did not involve an included aircraft directly affecting an excluded aircraft model, for example a hangar fire that destroys all the aircraft in the building, only those models that normally meet the criteria for inclusion would be included.
+
+Accounting issues with multiple aircraft events
+If an event involves multiple aircraft, each person must be apportioned to a particular aircraft. While this is not an issue with respect to those in the crew members and passengers, those in the Other category should also be apportioned to a particular aircraft to prevent double counting. For clarity, there should be an explanation in the Notes section for any aircraft in a multiple aircraft event that has one or more people in the Other category.
+
+
+
+
+Section 4: Definitions
+The following definitions are used throughout the database and the supporting documents. Some of the definitions are based on definitions used by leading accident investigation and air safety policy organizations, in particular ICAO and NTSB. Other definitions are specific to this database.
+
+Sources: 
+ICAO Annex 13 to the Convention on International Civil Aviation
+US Code of Federal Regulations Title 49 section 830.2
+	
+Accident: An occurrence or event associated with the operation, storage, maintenance or towing of an aircraft in which any person suffers death or serious injury, or in which the aircraft receives at least substantial damage. 
+
+Aircraft event: A single record in the database. Each record represents an event of interest, typically related to aircraft damaged or to serious or fatal injury to a person on or near the aircraft, that involves a single aircraft. Each database record has a unique ten-character identifier for associated with an aircraft event.
+
+Airline: A commercial or non-commercial operator of one or more aircraft that provides scheduled or non-scheduled air transport services to the public for the carriage of passengers, freight or mail. This category also includes operators of both smaller aircraft used for on-demand air taxi services for passengers and freight, as well as operators of military or public use aircraft if that aircraft is used to provide routine, non-emergency, scheduled and non-scheduled air transport services to the public for the carriage of passengers and freight.
+
+Attrition loss - Any event that is not classified as a Major loss and that involves an aircraft model included in the database that is not an aircraft operated by a government or military organization and that also has one or more of the following characteristics:
+A documented monetary loss valued between zero dollars and $5M.
+A combination of casualties that includes at least one fatality or two serious injuries, and that has a maximum of nine total casualties
+The complete destruction or write off of any single aisle jet or turboprop powered airliner if that airliner is greater than 20 years old (year of the event minus the year the aircraft was produced is greater than 20)
+Damage to a an essential aircraft structural component or aircraft system of a single aisle large commercial jet airliner or turboprop propelled aircraft  where that damage requires refurbishment, repair, or replacement of that system or structure before the aircraft is returned to service
+
+Casualty: A death or serious injury associated with an aircraft event listed in the database (refer to definitions for Death and Serious Injury).
+
+Crew member: A pilot, flight engineer, flight attendant, mechanic, or other person who is on board the aircraft and is tasked with operating the aircraft or directly supporting the flight operation.
+
+Death: An injury that results in death when that injury is sustained by someone who is on, or in the vicinity of, an aircraft, or who is at some distance from the aircraft but who is nevertheless affected by the aircraft, where the injury is directly related to an unexpected or untimely death of that person. There is no set time limit between the onset of the injury and the death of that person, but the injury must be a primary or contributing cause of death, and the condition should not be present prior to that person’s encounter with the aircraft.
+
+Major Loss: Any event involving an aircraft model required to be included in the database, that is not an aircraft operated by a government or military organization, and that also has one or more of the following characteristics:
+A documented monetary loss valued at $5M or greater
+A total of 10 or more casualties
+The complete destruction or write off of any multiple aisle large commercial jet airliner
+The complete destruction or write off of any single aisle jet or turboprop powered airliner if that airliner is less than 20 years old (year of the event minus the year the aircraft was produced is less than 20)
+Damage to an essential aircraft structural component or aircraft system of a multiple aisle large commercial jet airliner where that damage requires refurbishment, repair, or replacement of that system or structure before the aircraft is returned to service 
+
+Military aircraft: An aircraft that is operated by a military organization. While such aircraft typically operate on behalf on a military organization with only military passengers or crew members, it is possible that the aircraft may have non-military passengers or crew members, may be operated on behalf of a non-military government organization, or it may be a part of a commercial passenger or cargo airline service.
+
+Operational Flight: A flight involving an aircraft engaged in a scheduled or non-scheduled passenger or cargo flight, repositioning flight, ferry flight, flight by a governmental or public agency, flight test, or non-hostile military flight. Excluded would be a flight that is part of a deliberate attempt to defraud the insurer of that aircraft. A non-operational flight would have one of the two following Flight.Purpose categories:
+MH: Military and potentially hostile
+NF: Not flight related
+Note that an unknown category for the Flight.Purpose category would make that event neither operational or non-operational.
+
+Other: A category of person who is injured or killed, or at risk of being injured or killed, due to an aircraft-related event, and who have one of the following set of characteristics:
+The person is not inside the aircraft at the time of the event,
+Are stowaways,
+Are not authorized to be on board the plane, or
+Are a passenger or crew member who either before or during the flight becomes a hijacker or saboteur. 
+
+Note on passengers or crew members moving to the group Other: If during any part of the flight, any passenger or crew member attempts to hijack the aircraft, act as a saboteur, or in any way takes actions with the intent of causing death or injury to others or substantial damage or complete destruction of the aircraft, then this person would cease to be either a passenger or crew member and would be put into the Other category.
+
+Public aircraft: An aircraft operated by, or on behalf of a non-military unit of government for non-commercial purposes. Examples include law enforcement and government sponsored scientific research
+
+Passenger: Any person who is on board of an aircraft and who is not a crew member, stowaway, hijacker, or saboteur. This would include any off-duty crew member who will act as a crew member at any point of that flight. 
+
+Serious injury: Any injury sustained by someone who is on, or in the vicinity of, an aircraft, or who is at some distance from the aircraft but who is nevertheless affected by the aircraft, where that injury results in one or more of the following: 
+Hospitalization for more than 48 hours;
+Fracture of any bone (except simple fractures of fingers, toes, or nose); 
+Severe hemorrhage, nerve, muscle, or tendon damage; 
+Injury to  any internal organ; 
+Involves second- or third-degree burns; or
+Burns affecting more than five percent of the body surface.
+
+Stowaway: A person who is not authorized to be on board an aircraft while that aircraft is in the midst of a flight operation. This would include times when the aircraft is in flight, loading, unloading, or taxiing. The person may be in a part of the aircraft typically occupied by passengers or crew members, inside a part of the aircraft typically used for baggage or cargo, in another part of the aircraft (either enclosed or not enclosed), or laying on or connected to an outside surface of an aircraft. That person may be either voluntarily or involuntarily in this status.
+
+Substantial damage: Damage or failure which adversely affects the structural strength, performance, or flight characteristics of the aircraft, and which would normally require major repair or replacement of the affected component. Excluded events include engine failure or damage limited to an engine if only one engine fails or is damaged, bent fairings or cowling, dented skin, small puncture holes in the skin of the aircraft, and damage to landing gear, wheels, tires, flaps, engine accessories, brakes, or wingtips.
+
+Tail strike: An event where the lower aft portion of an aircraft’s fuselage makes contact with the runway, or with the ground in an area adjacent to the runway, during either takeoff or landing. Note that in the database, the Event.Special variable uses a code that would include tail strikes as well as any other situation where a part of the aircraft contacts the ground on or adjacent to a runway during takeoff or landing.
+
+Unique event: One or more aircraft events (database records) associated with an event of interest. This could be a single database record if only one aircraft is involved, or multiple records if two or more aircraft are involved.  Each database record has a unique ten-character identifier for associated with an aircraft event, and the first eight characters identify which records are associated with a unique event. 
+
+Wingtip strike: An event where the underside of a wingtip aircraft’s fuselage makes contact with the runway, or with an area adjacent to the runway, during either takeoff or landing. Note that in the database, a wingtip strike would use the same code as a tail strike for the Event.Special variable.
+
+Write off: An aircraft is damaged and repairable, but that is not repaired or returned to service.
+ 
+
+
+
+
+
