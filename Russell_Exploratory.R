@@ -324,6 +324,11 @@ apply(events.range[,sort(c(integer.vars.ndx,factor.vars.ndx))],2,table, useNA = 
 paste("Table of the last two Event.ID characters (multiple event indicator)")
 table(substr(events.range$Event.ID, nchar(events.range$Event.ID)-1,nchar(events.range$Event.ID)))
 
+# Note: The following gives the index of events that have an EventID
+#       ending in '02', indicating a multiple aircraft event
+# which((substr(events.range$Event.ID, nchar(events.range$Event.ID)-1,nchar(events.range$Event.ID))=="02"))
+
+
 # === BAR PLOT OF HOURS ===
 # Using the 24-hour clock, so hours range from 0 to 23
 # For the vector of hours, convert the first two characters of the 
