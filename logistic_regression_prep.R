@@ -45,6 +45,11 @@ if("ggplot2" %in% rownames(installed.packages()) == FALSE)
 {install.packages("ggplot2")}
 library(ggplot2)
 
+
+if("gridExtra" %in% rownames(installed.packages()) == FALSE) 
+{install.packages("gridExtra")}
+library(gridExtra)
+
 if("repr" %in% rownames(installed.packages()) == FALSE) 
 {install.packages("repr")}
 library(repr)
@@ -67,35 +72,121 @@ library(MLmetrics)
 
 # ====  FUNCTIONS ====
 
+
+# TEST: basic_hist(events,colnames(events)[numeric.vars.ndx])
+
 # Basic ggplot histogram for numeric features
 basic_hist = function(df, numcols){
-        options(repr.plot.width=4, repr.plot.height=3) # Set the initial plot area dimensions
+        options(repr.plot.width=6, repr.plot.height=8) # Set the initial plot area dimensions
         for(col in numcols){
                 if(is.numeric(df[,col])){
+                        pdf(paste("histogram_",col,".pdf",sep = ""))  
                         p = ggplot(df, aes_string(col)) +
                                 geom_bar(color = 'black', fill= 'dodgerblue') +
                                 ggtitle(paste('Bar plot of', col, 'feature')) +
                                 theme_bw() +
                                 theme(plot.title = element_text(hjust = 0.5)) +
-                                theme(axis.text.x = element_text(angle=65, vjust=0.6))
+                                theme(axis.text.x = element_text(angle=90, vjust=1))
                         print(p)
+                        dev.off()
                 }
         }
 }
 
-# Basic ggplot boxplot for numeric features
+# basic_boxplot(events, colnames(events)[numeric.vars.ndx])  
+
+# Basic ggplot boxplot for numeric features comparing to Loss.Severity value
 basic_boxplot = function(df, numcols, col_x = 'Loss.Severity'){
-        options(repr.plot.width=4, repr.plot.height=3) # Set the initial plot area dimensions
+        options(repr.plot.width=6, repr.plot.height=8) # Set the initial plot area dimensions
         for(col in numcols){
                 if(is.numeric(df[,col])){
+                        pdf(paste("basic_boxplot_",col,".pdf",sep = ""))   
                         p = ggplot(df, aes_string(col_x, col)) +
                                 geom_boxplot(color = 'black', fill= 'dodgerblue') +
-                                ggtitle(paste('Box plot of', col, 'vs.', col_x)) 
+                                ggtitle(paste('Box plot of', col, 'vs.', col_x))+
+                                theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
                        print(p)
+                       dev.off()
                 }
         }
 }
 
+# plot_factor(events, colnames(events)[factor.vars.ndx[c(1:5,11:16,18:19,22:24)]])   
+
+# Barplot of feature that is a factor
+plot_factor = function(df, cat_cols){
+        options(repr.plot.width=6, repr.plot.height=8) # Set the initial plot area dimensions
+        for(col in cat_cols){
+                if(is.factor(df[,col])){
+                        pdf(paste("factor_",col,".pdf",sep = ""))   
+                        p = ggplot(df, aes_string(df[,col])) +
+                                geom_bar(width = 0.5,  color = 'black', fill= 'dodgerblue') +
+                                theme(axis.text.x = element_text(angle=90, vjust=0.6)) +
+                                ggtitle(col) 
+                        print(p)
+                        dev.off()
+                }
+        }
+}
+
+# plot_bars(events, colnames(events)[factor.vars.ndx[c(1:5,11:16,18:19,22:24)]])   
+
+plot_bars = function(df, cat_cols){
+# Produces three barplots, one with the population of the entire feature, 
+#       and two others comparing two subpopulation,
+#       Loss.Severity is Major or not Major)
+# cat_cols are the names of the category columns for review ( selected factor features)
+        options(repr.plot.width=6, repr.plot.height=8) # Set the initial plot area dimensions
+        temp_all = df
+        temp0 = df[df$Loss.Severity == "M",]
+        temp1 = df[df$Loss.Severity != "M",]
+        for(col in cat_cols){
+                pdf(paste("factor_",col,"_by_major_loss.pdf",sep = ""))   
+                p_all = ggplot(temp_all, aes_string(col)) + 
+                        geom_bar(color = 'black', fill= 'dodgerblue') +
+                        ggtitle(paste('Bar plot of entire feature', col)) +  
+                        theme(axis.text.x = element_text(angle = 90, hjust = 1))
+                
+                p1 = ggplot(temp0, aes_string(col)) + 
+                        geom_bar(color = 'black', fill= 'dodgerblue') +
+                        ggtitle(paste('Bar plot of', col, 'for Major Loss')) +  
+                        theme(axis.text.x = element_text(angle = 90, hjust = 1))
+                p2 = ggplot(temp1, aes_string(col)) + 
+                        geom_bar(color = 'black', fill= 'dodgerblue') +
+                        ggtitle(paste('Bar plot of', col, 'for non-Major Loss')) +
+                        theme(axis.text.x = element_text(angle = 90, hjust = 1))
+                grid.arrange(p_all, p1,p2, nrow = 3)
+                dev.off()
+        }
+}
+
+make_factor = function(input.num.vec, num.limits, factor.levels){
+        # This function takes a numeric vector, values that define value ranges
+        #       to be associated with a new factor vector and returns a factor vector
+        #       of the same length.
+        
+        # First step is to change numbers to specific number levels
+        # Second step is to define that vector as factor and simultaneously
+        #       relabel the factor levels
+        num.limits = sort(num.limits) # Ensure number limits are in order
+        
+        if((length(num.limits)) != length(factor.levels)){paste("Incorrect number of factor levels given the number limits")}
+        
+        for(i in 1:length(factor.levels)){
+                
+                if(i==1){
+                        input.num.vec[input.num.vec <= num.limits[1]] = -0.1      
+                }
+                else if (i!=1){
+                        input.num.vec[(input.num.vec > num.limits[i-1]) & (input.num.vec <= num.limits[i])]  = -0.1*i     
+                }
+        }
+        input.num.vec = -10*input.num.vec
+        new.factor.vec = factor(input.num.vec, labels=factor.levels)
+}
+
+
+# ==========
 # Normalizing numeric data
 
 # Numeric features and their number of NA values
@@ -106,7 +197,7 @@ basic_boxplot = function(df, numcols, col_x = 'Loss.Severity'){
 # Import raw data (data files online in local directory AirSafe Consulting/Russell reports/event_database.csv)
 events = NULL
 events.raw = NULL
-events.range = NULL
+# events.range = NULL # Not relevant because all records used in developing algorithm
 events.raw <- read.csv("event_database.csv", header = TRUE)
 
 # Ensure that working data is in a data frame 
@@ -257,7 +348,7 @@ factor.vars = c("Event.Type", "Hour.Category", "Multi.Aircraft", "Operator.Categ
                 "Loss.Severity", "International.Flight", "Passenger.Flight",          
                 "Scheduled.Flight", "Event.Special",     
                 "Aircraft.Model", "Original.Operator","Engine.Type",
-                "Investigation.Status")
+                "Investigation.Status", "Aircraft.Manufacturer","Registration.Country", "Operator.Country", "Investigating.Authority")
 
 # Index of factor variables
 factor.vars.ndx = which(colnames(events) %in% factor.vars)
@@ -287,7 +378,11 @@ factor.null.values = c( "", "99", "9","999","9999",
 #       Hour.Category
 #       Investigation.Status
 
-factor.vars.missing.modeled = c("Hour.Category","Investigation.Status", "Original.Operator", "Event.Special", "International.Flight")
+factor.vars.missing.modeled = c("Hour.Category","Investigation.Status", "Original.Operator", 
+                                        "Event.Special", "International.Flight", "Scheduled.Flight", 
+                                        "Passenger.Flight", "Aircraft.Manufacturer",
+                                        "Registration.Country", "Operator.Country", "Investigating.Authority")
+
 factor.vars.not.modeled.ndx = factor.vars[!factor.vars %in% factor.vars.missing.modeled]
 
 # Make missing or unknown values from categorical features
@@ -308,7 +403,7 @@ for (i in 1:length(factor.vars.not.modeled.ndx)) {
 cat(paste("","Factor variables","",sep="\n\n"))
 # Used cat(paste(...)) to put new lines before and after heading)
 
-colnames(events[factor.vars.ndx])
+sort(colnames(events[factor.vars.ndx]))
 
 
 # ==Manage numeric variables==
@@ -343,14 +438,14 @@ for (i in 1:length(numeric.vars.ndx)) {
 cat(paste("", "Numeric variables","",sep="\n\n"))
 # Used cat(paste(...)) to put new lines before and after heading)
 
-colnames(events[numeric.vars.ndx])
+sort(colnames(events[numeric.vars.ndx]))
 
 # ==Manage character variables==
 
 char.vars = c("Event.ID", "Tail.Number", "Event.Location",
-              "Origin", "Destination", "Flight.End", "Aircraft.Manufacturer", "Aircraft.Submodel",     
-              "Registration.Country", "Serial.Number","Engine.Manufacturer", "Engine.Model", "Engine.Submodel",           
-              "Operator.Name", "Operator.Country", "Investigating.Authority", "Probable.Cause", "Notes")
+              "Origin", "Destination", "Flight.End",  "Aircraft.Submodel",     
+              "Serial.Number","Engine.Manufacturer", "Engine.Model", "Engine.Submodel",           
+              "Operator.Name", "Probable.Cause", "Notes")
 
 # Index of character variables
 char.vars.ndx = which(colnames(events) %in% char.vars)
@@ -360,7 +455,7 @@ char.vars.ndx = which(colnames(events) %in% char.vars)
 cat(paste("", "Character variables","",sep="\n\n"))
 # Used cat(paste(...)) to put new lines before and after heading)
 
-colnames(events[char.vars.ndx])
+sort(colnames(events[char.vars.ndx]))
 
 # Convert Event.Time to character  for later processing
 events[,"Event.Time"] = as.character(events[,"Event.Time"])
@@ -408,15 +503,25 @@ events = events[!disregard.ndx,]
 
 
 #==Create numeric variables ===
-# Create feature Aircraft.Age
+# Create features Aircraft.Age, Industry.Maturity, Cert.Since.1960
 #       This is an integer value of Event.Year - Production.Year
 #       except when the difference is zero. In that case, change the value to 0.5
+
+# Aircraft.Age
 events$Aircraft.Age = events$Event.Year - events$Production.Year
 paste(sum((events$Event.Year - events$Production.Year)==0),"events occurred same year as  delivery year, adjust age from zero to 0.5")
 events$Aircraft.Age[(events$Event.Year - events$Production.Year)==0] = 0.5
 
-# Add "Aircraft.Age" to numeric variables list
-numeric.vars=c(numeric.vars,"Aircraft.Age")
+# Industry.Maturity (from 1960 to event year)
+events$Industry.Maturity = events$Event.Year - 1960
+
+
+# Years.Since.Cert (1960 to year of certification)
+events$Years.Since.Cert = 2019 - events$Aircraft.Cert.Year
+
+
+# Add Aircraft.Age, Industry.Maturity, Years.Since.Cert  and to numeric variables list
+numeric.vars=c(numeric.vars,"Aircraft.Age", "Industry.Maturity", "Years.Since.Cert")
 numeric.vars.ndx = which(colnames(events) %in% numeric.vars)
      
 # Create feature Major.Casualties
@@ -446,22 +551,25 @@ ifelse(sum(!(colnames(events) %in% c(numeric.vars,factor.vars, char.vars))) == 0
 cat(paste("\n\n"))
 paste("Column names are:")
 
-colnames(events)
+sort(colnames(events))
 
-cat(paste("\n\n"))
-paste("Time variable is ","Event.Time")
 
 cat(paste("\n\n"))
 paste("Numeric variables are")
-colnames(events[,numeric.vars.ndx])
+sort(colnames(events[,numeric.vars.ndx]))
 
 cat(paste("\n\n"))
 paste("Factor variables are")
-colnames(events[,factor.vars.ndx])
+sort(colnames(events[,factor.vars.ndx]))
 
 cat(paste("\n\n"))
 paste("Character variables are")
-colnames(events[,char.vars.ndx])
+sort(colnames(events[,char.vars.ndx]))
+
+
+cat(paste("\n\n"))
+paste("Other variables are:")
+sort(colnames(events[,-c(factor.vars.ndx, char.vars.ndx, numeric.vars.ndx)]))
 
 # ====Post initial cleaning actions====
 # After cleaning the database, including setting missing
@@ -491,6 +599,7 @@ paste("Number of aircraft events used for model -",nrow(events))
 cat("\n")
 
 paste("Number of unique events in total database -",length(which(substr(events$Event.ID, nchar(events$Event.ID)-1, nchar(events$Event.ID))=="01")))
+paste("Number of unique events in total database -",nrow(events) - length(which(duplicated(substr(events$Event.ID,1,8)))) )
 
 # The factor variable "Multi.Aircraft" flags all aircraft involved
 #       in a multiple aircraft event. If the other aircraft was
@@ -501,24 +610,91 @@ paste("Number of unique events in total database -",length(which(substr(events$E
 paste("Summaries of data from factor and numeric variables")
 apply(events[,sort(c(numeric.vars.ndx,factor.vars.ndx))],2,table, useNA = "always")
 
-paste("Plots of production year by manufacturer")
-p1 = ggplot(events, aes(x = Aircraft.Manufacturer,y = Production.Year)) + geom_boxplot()
+
+# FACTOR FEATURES
+
+# RANKING ALL FACTOR FEATURES
+# For a consistent look, barplots for factor variables will 
+#       be decreasing in size from left to right. To do that,
+#       they will be ranked by popularity
+
+for (i in 1:length(factor.vars.ndx)){
+        events[,factor.vars.ndx[i]] = factor(events[,factor.vars.ndx[i]], levels = names(sort(table(events[,factor.vars.ndx[i]]), decreasing=TRUE)))
+}
+
+# Now that they are ranked, the following calls
+#       to a function will display selected
+#       factors in various configurations: 
+
+# NUMERIC FEATURES HISTOGRAM
+# Histograms for numeric variables
+basic_hist(events,colnames(events)[numeric.vars.ndx])
+
+
+# Boxplots for numeric variable by Loss.Severity value
+basic_boxplot(events, colnames(events)[numeric.vars.ndx])  
+
+#  BOXPLOTS OF SELECTED FACTOR FEATURES
+# Boxplots for factor variables
+plot_factor(events, colnames(events)[factor.vars.ndx[c(1:5,11:16,18:19,22:24)]])   
+
+# Boxplots for factor variable by Loss.Severity value compared to Loss.Severity subpopulations
+plot_bars(events, colnames(events)[factor.vars.ndx[c(1:5,11:16,18:19,22:24)]])   
+
+# Non-ggplot tables and histograms
+
+# Text tables of numeric variables
+apply(events[,numeric.vars.ndx],2,table)
+
+# Text tables of factor variables
+apply(events[,factor.vars.ndx],2,table)
+
+# Spread of production year by aircraft manufacuer
+pdf(paste("boxplot_production_year_by_manufacture.pdf"))   
+p = ggplot(events, aes_string("Aircraft.Manufacturer", "Production.Year")) +
+        geom_boxplot(color = 'black', fill= 'dodgerblue') +
+        ggtitle(paste('Box plot of Production.Year vs. Aircraft.Manufacturer'))+
+        theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
+print(p)
+dev.off()
+
+
+# FEATURE TRANSFORMATION AND LABEL CREATION
+# After initial review, a number of numeric features were transformed for use in 
+#       the prediction algorithm. Also, a binary label was created for use in that algorithm
+
+# Add normalized selected numeric variables
+events$Production.Year.norm = scale(events$Production.Year)
+events$Years.Since.Cert.norm = scale(events$Years.Since.Cert)
+
+# Add the normalized log value of selected numeric variables
+events$Aircraft.Age.log.norm = scale(log(events$Aircraft.Age))
+
+# Create a factor feature based on Major.Casualties
+# This heavily skewed feature was used to create a factor 
+#       feature with three levels: One for no causualties, 
+#       one for 1 to 5 factors 
+
+num.limits= c(0,9,1000)
+factor.levels = c("none","1to9","10plus")
+events$Major.Casualties.factor = make_factor(events$Major.Casualties,num.limits,factor.levels)
+
 
 # === Summary of the study period ===
-cat("\n")
-paste("=== Summary of the study period ===")
-cat("\n")
+# cat("\n")
+# paste("=== Summary of the study period ===")
+# cat("\n")
 
 # Create an index of records of aircraft events that fall in the study period
 # Original study period was from 2008-2018, will now include all
 # events.range.ndx = events$Event.Date>=as.Date("2008-01-01") & events$Event.Date<=as.Date("2018-12-31")
-events.range.ndx = events$Event.Date>=as.Date("1997-01-01") & events$Event.Date<=as.Date("2028-12-31")
-events.range = events[events.range.ndx,]
-events.range.unique.ndx = which(substr(events.range$Event.ID, nchar(events.range$Event.ID)-1, nchar(events.range$Event.ID))=="01")
+# events.range.ndx = events$Event.Date>=as.Date("1997-01-01") & events$Event.Date<=as.Date("2028-12-31")
+# events.range = events[events.range.ndx,]
+# events.range.unique.ndx = which(substr(events.range$Event.ID, nchar(events.range$Event.ID)-1, nchar(events.range$Event.ID))=="01")
 
-cat(paste("\n\n"))
-paste("Data includes",nrow(events), "records from",min(events$Event.Date),"to",max(events$Event.Date))
-cat(paste("\n\n"))
+# cat(paste("\n\n"))
+# paste("Data includes",nrow(events), "records from",min(events$Event.Date),"to",max(events$Event.Date))
+# cat(paste("\n\n"))
 
 # ==== ENSURE Event.ID VARIABLES IN STUDY PERIOD ARE UNIQUE ====
 
@@ -527,26 +703,26 @@ cat(paste("\n\n"))
 
 # First step is to see if there is only one variable with unique values
 
-unique.ndx = which(lapply(lapply(events.range,unique),length)==nrow(events.range))
-
-if (length(unique.ndx)==0){
-        print("No variable can serve as a unique identifier.")
-}
-
-if (length(unique.ndx)==1)paste("Variable '", colnames(events)[unique.ndx],
-                                "' can serve as a unique identifier.", sep = "")
-
-if (length(unique.ndx)>1){
-        print("The following variables that can serve as unique identifiers:")
-        colnames(events)[unique.ndx]
-}
+# unique.ndx = which(lapply(lapply(events.range,unique),length)==nrow(events.range))
+# 
+# if (length(unique.ndx)==0){
+#         print("No variable can serve as a unique identifier.")
+# }
+# 
+# if (length(unique.ndx)==1)paste("Variable '", colnames(events)[unique.ndx],
+#                                 "' can serve as a unique identifier.", sep = "")
+# 
+# if (length(unique.ndx)>1){
+#         print("The following variables that can serve as unique identifiers:")
+#         colnames(events)[unique.ndx]
+# }
 # ======= 
 
 
-cat("\n")
-paste("Aircraft event date range for study period:", 
-      min(events.range$Event.Date),"to",
-      max(events.range$Event.Date))
+# cat("\n")
+# paste("Aircraft event date range for study period:", 
+#       min(events.range$Event.Date),"to",
+#       max(events.range$Event.Date))
 
 # NOTE: will have to recompute these
 # cat("\n")
@@ -563,283 +739,270 @@ paste("Aircraft event date range for study period:",
 # paste("Number of events involving two or more aircraft during the study period -",num.dup.events.study.period)
 
 # Table of events by year (during study period)
-cat("\n")
-paste("Table of events by year (during study period)")
-table(as.numeric(format(as.Date(events.range$Event.Date, format="%Y-%m-%d"),"%Y")))
-
-# Table of events by Loss.Severity (during study period)
-cat("\n")
-paste("Table of events by Loss.Severity (during study period) where M is Major Loss, A is Attrition Loss, and U is undamaged")
-cat("\n")
-sort(table(events.range$Loss.Severity, useNA = "ifany"), decreasing = TRUE)
+# cat("\n")
+# paste("Table of events by year (during study period)")
+# table(as.numeric(format(as.Date(events.range$Event.Date, format="%Y-%m-%d"),"%Y")))
+# 
+# # Table of events by Loss.Severity (during study period)
+# cat("\n")
+# paste("Table of events by Loss.Severity (during study period) where M is Major Loss, A is Attrition Loss, and U is undamaged")
+# cat("\n")
+# sort(table(events.range$Loss.Severity, useNA = "ifany"), decreasing = TRUE)
 
 
 # For events with and loss severity considered to be a Major Loss
 #       (detailed definition of Major Loss in Proposed Variables for Database document)
 #       there was a range range of percentage of aircraft value lost.
 
-cat("\n")
-paste(length(which(events.range$Damage.Severity>0)), "events had a known Damage.Severity value >= 0, with",
-      length(which(events.range$Damage.Severity==0)), "of them equal to zero")
-
-cat("\n")
-paste("Sorted distribution of events with a known Damage.Severity value for", length(which(events.range$Damage.Severity>=0)), "total events")
-sort(table(events.range$Damage.Severity[which(events.range$Damage.Severity>=0)], useNA = "always"), decreasing = TRUE)
-
-cat("\n")
-paste("Sorted distribution of events with a known Damage.Severity value for Major loss events")
-sort(table(events.range$Damage.Severity[which(events.range$Damage.Severity>=0 & events.range$Loss.Severity=="M")], useNA = "always"), decreasing = TRUE)
-
-
-# AIRCRAFT BY MANUFACTURER
-# To sort this graph, first must tell the feature how to rank the levels
-#	They will be ranked by popularity (ensuring that manufacturer names are factors)
-events$Aircraft.Manufacturer = factor(events$Aircraft.Manufacturer, levels = names(sort(table(events$Aircraft.Manufacturer), decreasing=TRUE)))
-
-ggplot(events, aes(Aircraft.Manufacturer)) +
-        geom_bar(width = 0.5,  color = 'dodgtserblue', fill= 'dodgerblue') +
-        theme(axis.text.x = element_text(angle=65, vjust=0.6))
-
-# AIRCRAFT PRODUCTION YEARS
-ggplot(events, aes(Production.Year)) +
-        +     geom_bar(color = 'black', fill= 'dodgerblue') +
-        +     theme(axis.text.x = element_text(angle=65, vjust=0.6))
-
-# SUMMARY OF TOTAL DEATHS AND TOTAL SERIOUS INJURIES IN PERIOD OF INTEREST
-
-# Total.Deaths overview
-cat("\n")
-paste(length(which(events.range$Total.Deaths>=0)), "events from 2008-2018 had a known Total.Deaths value of zero or greater, with",
-      length(which(events.range$Total.Deaths>0)), "of them with at least one fatality")
-
-cat("\n")
-paste("Sorted distribution of percent of Total.Deaths value")
-sort(table(events.range$Total.Deaths[which(events.range$Total.Deaths>0)], useNA = "always"), decreasing = TRUE)
-
-#Total.Serious.Injuries overview
-cat("\n")
-paste(length(which(events.range$Total.Serious.Injuries>=0)), "events from 2008-2018 had a known Total.Serious.Injuries value of zero or greater, with",
-      length(which(events.range$Total.Serious.Injuries>0)), "of them with at least one serious injury")
-
-cat("\n")
-paste("Sorted distribution of percent of Total.Serious.Injuries value")
-sort(table(events.range$Total.Serious.Injuries[which(events.range$Total.Serious.Injuries>0)], useNA = "always"), decreasing = TRUE)
-
-#Overview of events with deaths and serious injuries
-cat("\n")
-paste(length(which(events.range$Total.Serious.Injuries>=0 & events.range$Total.Deaths>=0)), "events from 2008-2018 had a known value for deaths and serious injuries, with",
-      length(which(events.range$Total.Serious.Injuries>0 & events.range$Total.Deaths>0)), "of them with at least one serious injury and one fatality")
-
-both.fatal.and.injury.ndx = which(events.range$Total.Serious.Injuries>0 & events.range$Total.Deaths>0)
-
-both.fatal.and.injury = events.range$Total.Serious.Injuries[both.fatal.and.injury.ndx] + events.range$Total.Deaths[both.fatal.and.injury.ndx]
-
-cat("\n")
-paste("Sorted distribution of events with both serious injuries and fatalities")
-sort(table(both.fatal.and.injury, useNA = "always"), decreasing = TRUE)
-
-
-
-# Summary of data from the factor and numeric variables
-
-# Variables that can be reasonably summarized include
-# all factor and numeric variables. Using the sorted 
-# index values will result in summaries in the same
-# order as in the spreadsheet that makes up the database
-# The ordered index is sort(c(numeric.vars.ndx,factor.vars.ndx))
-
-cat("\n")
-cat(paste("","Summaries of data from factor and numeric variables for study period","",sep="\n"))
-apply(events.range[,sort(c(numeric.vars.ndx,factor.vars.ndx))],2,table, useNA = "always")
-
-# Can indirectly compute number of multiple events.
-# Do a table of the last two Event.ID characters. 
-cat(paste("","Table of the last two Event.ID characters (multiple event indicator)","",sep="\n"))
-table(substr(events.range$Event.ID, nchar(events.range$Event.ID)-1,nchar(events.range$Event.ID)))
-
-# Note: The following gives the index of events that have an EventID
-#       ending in '02', indicating a multiple aircraft event
-# which((substr(events.range$Event.ID, nchar(events.range$Event.ID)-1,nchar(events.range$Event.ID))=="02"))
-
-# === FACTOR COMBINATIONS ===
-# Three factor variables, Flight.Purpose, Flight.Phase, and Event.Special,
-#       have a limited number of categories, a combination of two or three
-#       of these factors will serve to put the database of records into
-#       general categories that when put into table form could
-#       help identify accident and incident trends.
-
-# The following factor combination summaries are limited to
-#       the study period, which is in data frame events.range
-# First, must identify non-NA factor values
-flight.phase.ndx = !is.na(events.range$Flight.Phase)
-flight.purpose.ndx = !is.na(events.range$Flight.Purpose)                                 
-event.special.ndx = !is.na(events.range$Event.Special)                                 
-
-# COMBINATION #1
-# First combination is Flight.Purpose and Flight.Phase
-# The next variable is the index of those records with a non-NA input 
-#       for both the Flight.Purpose and Flight.Phase variables.
-
-purpose.phase.ndx = flight.purpose.ndx & flight.phase.ndx
-aaa = c(as.character(events.range$Flight.Purpose[purpose.phase.ndx]))
-bbb = c(as.character(events.range$Flight.Phase[purpose.phase.ndx]))
-
-purpose.phase.vector = paste(aaa,bbb, sep="-")
-
-cat("\n")
-paste("COMBINATION #1: In the following ordered table of the combination of the Flight.Purpose and Flight.Phase factors,",
-      length(purpose.phase.vector), "aircraft were involed in",
-      length(table(purpose.phase.vector)), "unique combinations of Flight.Purpose and Flight.Phase categories")
-
-sort(table(purpose.phase.vector), decreasing = TRUE)
-
-# COMBINATION #2
-# The second combination will be of Flight.Purpose and Event.Special
-# The next variable is the index of those records with a non-NA entry
-#       for both the Flight.Purpose and Event.Special variables.
-
-purpose.event.ndx = flight.purpose.ndx & event.special.ndx
-ccc = c(as.character(events.range$Flight.Purpose[purpose.event.ndx]))
-ddd = c(as.character(events.range$Event.Special[purpose.event.ndx]))
-
-purpose.event.vector = paste(ccc, ddd, sep="-")
-
-cat("\n")
-paste("COMBINATION #2: In the following ordered table of the combination of Flight.Purpose and Event.Special factors,",
-      length(purpose.event.vector), "aircraft were involved in",
-      length(table(purpose.event.vector)), "unique combinations of Flight.Purpose and Event.Special categories.")
-
-sort(table(purpose.event.vector), decreasing = TRUE)
-
-# COMBINATION #3
-# The third combination will be of Flight.Phase and Event.Special
-# The next variable is the index of those records with a non-NA entry
-#       for both the Flight.Phase and Event.Special variables.
-
-phase.event.ndx = flight.phase.ndx & event.special.ndx
-eee = c(as.character(events.range$Flight.Phase[phase.event.ndx]))
-fff = c(as.character(events.range$Event.Special[phase.event.ndx]))
-
-phase.event.vector = paste(eee, fff, sep="-")
-
-cat("\n")
-paste("COMBINATION #3: In the following ordered table of the combination of Flight.Phase and Event.Special factors,",
-      length(phase.event.vector), "aircraft were involved in",
-      length(table(phase.event.vector)), "unique combinations of Flight.Phase and Event.Special categories.")
-
-sort(table(phase.event.vector), decreasing = TRUE)
-
-
-# COMBINATION #4
-# Third combination is Flight.Purpose, Flight.Phase, and Event.Special
-# The next variable is the index of those records with a non-NA input
-#       for the Flight.Purpose, Flight.Phase, and Event.Special variables.
-
-purpose.phase.event.ndx = flight.purpose.ndx & flight.phase.ndx & event.special.ndx
-ggg = c(as.character(events.range$Flight.Purpose[purpose.phase.event.ndx]))
-hhh = c(as.character(events.range$Flight.Phase[purpose.phase.event.ndx]))
-jjj = c(as.character(events.range$Event.Special[purpose.phase.event.ndx]))
-
-purpose.phase.event.vector = paste(ggg,hhh,jjj, sep="-")
-
-cat("\n")
-paste("COMBINATION #4: In the following ordered table of the combination of the Flight.Purpose and Flight.Phase factors,",
-      length(purpose.phase.event.vector), "aircraft were involed in",
-      length(table(purpose.phase.event.vector)), "unique combinations of Flight.Purpose, Flight.Phase, and Event.Special categories")
-
-sort(table(purpose.phase.event.vector), decreasing = TRUE)
-
-# === AIRCRAFT CATEGORIES ===
-# Each aircraft in this database has a number of characteristics, some of which
-#       can occur only in specific combinations. For example, a particular aircraft model is associated with a 
-#       specific manufacturer and aircraft type. The following table lists the population of each
-#       combination of the three variables Aircraft.Manufacturer, Aircraft.Model, and Aircraft Type
-#  
-# First, must identify non-NA values for the manufacturer, model, and type
-maker.ndx = !is.na(events.range$Aircraft.Manufacturer)
-model.ndx = !is.na(events.range$Aircraft.Model)                                 
-type.ndx = !is.na(events.range$Aircraft.Type)                                 
-
-maker.model.type.ndx = maker.ndx & model.ndx & type.ndx
-nnn = c(as.character(events.range$Aircraft.Manufacturer[maker.model.type.ndx]))
-ppp = c(as.character(events.range$Aircraft.Model[maker.model.type.ndx]))
-rrr = c(as.character(events.range$Aircraft.Type[maker.model.type.ndx]))
-
-maker.model.type.vector = paste(nnn, ppp, rrr, sep="-")
-
-cat("\n")
-paste("MANUFACTUER, MODEL, AND TYPE COMPBINATIONS: In the following ordered table of the combination of the Aircraft.Manufacturer, Aircraft.Model, and Aircraft.Type,",
-      length(maker.model.type.vector), "aircraft were divided among",
-      length(table(maker.model.type.vector)), " groupings.")
-
-sort(table(maker.model.type.vector), decreasing = TRUE)[1:10]
-
-# === BAR PLOT OF HOURS ===
-# Using the 24-hour clock, so hours range from 0 to 23
-# For the vector of hours, convert the first two characters of the 
-# Event.Time variable to numeric form
-# Will only use unique events
-
-hour.vector = as.numeric(substr(events.range$Event.Time[events.range.unique.ndx],1,2))
-
-
-# Convert hour vector so that time is put into 25 bins
-#       with bin 1 (coded as "1) including events from 0000 to 0059 hours 
-#       and bin 25 (coded as "99") being all those events with an unknown time.
-#       Then create an ordered factor variable from 1-24, plus 99
-
-barplot(table(hour.vector),
-        main = "Unique events by hour",
-        xlab = "Hour",
-        ylab = "Unique events",
-        col = "dodgerblue")
-
-# === BAR PLOT OF DAYS ===
-# Bar plot of events by day of the week and ensuring order of days
-# Will only use unique events
-
-day.vector = weekdays(events.range$Event.Date[events.range.unique.ndx], abbreviate = TRUE)
-day.vector = factor(day.vector,levels=c("Sun","Mon","Tue","Wed","Thu","Fri","Sat"), ordered=TRUE)
-
-barplot(table(day.vector),
-        main = "Unique events by weekday",
-        xlab = "Day",
-        ylab = "Unique events",
-        col = "dodgerblue")
-
-# === BAR PLOT OF Months ===
-# Bar plot of events by month and ensuring the order of months
-# Will only use unique events
-
-month.vector = months(events$Event.Date[events.range.unique.ndx], abbreviate = TRUE)
-month.vector = factor(month.vector,levels=c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"), ordered=TRUE)
-
-barplot(table(month.vector),
-        main = "Unique events by month",
-        xlab = "Month",
-        ylab = "Unique events",
-        col = "dodgerblue")
-
-# === BAR PLOT OF Years ===
-# Bar plot of events by year
-# Will only use unique events
-
-year.vector = as.numeric(format(events.range$Event.Date[events.range.unique.ndx],'%Y'))
-
-barplot(table(year.vector),
-        main = "Unique events by year",
-        xlab = "Year",
-        ylab = "Unique events",
-        col = "dodgerblue")
-
-# Histogram of all events by year for years of interest
-hist(as.integer(format(as.Date(events.range$Event.Date, format="%Y-%m-%d"),"%Y")), 
-     main = "Aircraft Events by year",
-     xlab = "Year",
-     ylab = "Events",
-     las = 2)
-# ==========
-#Save cleaned and processed data as CSV and Excel files
+# cat("\n")
+# paste(length(which(events.range$Damage.Severity>0)), "events had a known Damage.Severity value >= 0, with",
+#       length(which(events.range$Damage.Severity==0)), "of them equal to zero")
+# 
+# cat("\n")
+# paste("Sorted distribution of events with a known Damage.Severity value for", length(which(events.range$Damage.Severity>=0)), "total events")
+# sort(table(events.range$Damage.Severity[which(events.range$Damage.Severity>=0)], useNA = "always"), decreasing = TRUE)
+# 
+# cat("\n")
+# paste("Sorted distribution of events with a known Damage.Severity value for Major loss events")
+# sort(table(events.range$Damage.Severity[which(events.range$Damage.Severity>=0 & events.range$Loss.Severity=="M")], useNA = "always"), decreasing = TRUE)
+# 
+# 
+# 
+# # SUMMARY OF TOTAL DEATHS AND TOTAL SERIOUS INJURIES IN PERIOD OF INTEREST
+# 
+# # Total.Deaths overview
+# cat("\n")
+# paste(length(which(events.range$Total.Deaths>=0)), "events from 2008-2018 had a known Total.Deaths value of zero or greater, with",
+#       length(which(events.range$Total.Deaths>0)), "of them with at least one fatality")
+# 
+# cat("\n")
+# paste("Sorted distribution of percent of Total.Deaths value")
+# sort(table(events.range$Total.Deaths[which(events.range$Total.Deaths>0)], useNA = "always"), decreasing = TRUE)
+# 
+# #Total.Serious.Injuries overview
+# cat("\n")
+# paste(length(which(events.range$Total.Serious.Injuries>=0)), "events from 2008-2018 had a known Total.Serious.Injuries value of zero or greater, with",
+#       length(which(events.range$Total.Serious.Injuries>0)), "of them with at least one serious injury")
+# 
+# cat("\n")
+# paste("Sorted distribution of percent of Total.Serious.Injuries value")
+# sort(table(events.range$Total.Serious.Injuries[which(events.range$Total.Serious.Injuries>0)], useNA = "always"), decreasing = TRUE)
+# 
+# #Overview of events with deaths and serious injuries
+# cat("\n")
+# paste(length(which(events.range$Total.Serious.Injuries>=0 & events.range$Total.Deaths>=0)), "events from 2008-2018 had a known value for deaths and serious injuries, with",
+#       length(which(events.range$Total.Serious.Injuries>0 & events.range$Total.Deaths>0)), "of them with at least one serious injury and one fatality")
+# 
+# both.fatal.and.injury.ndx = which(events.range$Total.Serious.Injuries>0 & events.range$Total.Deaths>0)
+# 
+# both.fatal.and.injury = events.range$Total.Serious.Injuries[both.fatal.and.injury.ndx] + events.range$Total.Deaths[both.fatal.and.injury.ndx]
+# 
+# cat("\n")
+# paste("Sorted distribution of events with both serious injuries and fatalities")
+# sort(table(both.fatal.and.injury, useNA = "always"), decreasing = TRUE)
+# 
+# 
+# 
+# # Summary of data from the factor and numeric variables
+# 
+# # Variables that can be reasonably summarized include
+# # all factor and numeric variables. Using the sorted 
+# # index values will result in summaries in the same
+# # order as in the spreadsheet that makes up the database
+# # The ordered index is sort(c(numeric.vars.ndx,factor.vars.ndx))
+# 
+# cat("\n")
+# cat(paste("","Summaries of data from factor and numeric variables for study period","",sep="\n"))
+# apply(events.range[,sort(c(numeric.vars.ndx,factor.vars.ndx))],2,table, useNA = "always")
+# 
+# # Can indirectly compute number of multiple events.
+# # Do a table of the last two Event.ID characters. 
+# cat(paste("","Table of the last two Event.ID characters (multiple event indicator)","",sep="\n"))
+# table(substr(events.range$Event.ID, nchar(events.range$Event.ID)-1,nchar(events.range$Event.ID)))
+# 
+# # Note: The following gives the index of events that have an EventID
+# #       ending in '02', indicating a multiple aircraft event
+# # which((substr(events.range$Event.ID, nchar(events.range$Event.ID)-1,nchar(events.range$Event.ID))=="02"))
+# 
+# # === FACTOR COMBINATIONS ===
+# # Three factor variables, Flight.Purpose, Flight.Phase, and Event.Special,
+# #       have a limited number of categories, a combination of two or three
+# #       of these factors will serve to put the database of records into
+# #       general categories that when put into table form could
+# #       help identify accident and incident trends.
+# 
+# # The following factor combination summaries are limited to
+# #       the study period, which is in data frame events.range
+# # First, must identify non-NA factor values
+# flight.phase.ndx = !is.na(events.range$Flight.Phase)
+# flight.purpose.ndx = !is.na(events.range$Flight.Purpose)                                 
+# event.special.ndx = !is.na(events.range$Event.Special)                                 
+# 
+# # COMBINATION #1
+# # First combination is Flight.Purpose and Flight.Phase
+# # The next variable is the index of those records with a non-NA input 
+# #       for both the Flight.Purpose and Flight.Phase variables.
+# 
+# purpose.phase.ndx = flight.purpose.ndx & flight.phase.ndx
+# aaa = c(as.character(events.range$Flight.Purpose[purpose.phase.ndx]))
+# bbb = c(as.character(events.range$Flight.Phase[purpose.phase.ndx]))
+# 
+# purpose.phase.vector = paste(aaa,bbb, sep="-")
+# 
+# cat("\n")
+# paste("COMBINATION #1: In the following ordered table of the combination of the Flight.Purpose and Flight.Phase factors,",
+#       length(purpose.phase.vector), "aircraft were involed in",
+#       length(table(purpose.phase.vector)), "unique combinations of Flight.Purpose and Flight.Phase categories")
+# 
+# sort(table(purpose.phase.vector), decreasing = TRUE)
+# 
+# # COMBINATION #2
+# # The second combination will be of Flight.Purpose and Event.Special
+# # The next variable is the index of those records with a non-NA entry
+# #       for both the Flight.Purpose and Event.Special variables.
+# 
+# purpose.event.ndx = flight.purpose.ndx & event.special.ndx
+# ccc = c(as.character(events.range$Flight.Purpose[purpose.event.ndx]))
+# ddd = c(as.character(events.range$Event.Special[purpose.event.ndx]))
+# 
+# purpose.event.vector = paste(ccc, ddd, sep="-")
+# 
+# cat("\n")
+# paste("COMBINATION #2: In the following ordered table of the combination of Flight.Purpose and Event.Special factors,",
+#       length(purpose.event.vector), "aircraft were involved in",
+#       length(table(purpose.event.vector)), "unique combinations of Flight.Purpose and Event.Special categories.")
+# 
+# sort(table(purpose.event.vector), decreasing = TRUE)
+# 
+# # COMBINATION #3
+# # The third combination will be of Flight.Phase and Event.Special
+# # The next variable is the index of those records with a non-NA entry
+# #       for both the Flight.Phase and Event.Special variables.
+# 
+# phase.event.ndx = flight.phase.ndx & event.special.ndx
+# eee = c(as.character(events.range$Flight.Phase[phase.event.ndx]))
+# fff = c(as.character(events.range$Event.Special[phase.event.ndx]))
+# 
+# phase.event.vector = paste(eee, fff, sep="-")
+# 
+# cat("\n")
+# paste("COMBINATION #3: In the following ordered table of the combination of Flight.Phase and Event.Special factors,",
+#       length(phase.event.vector), "aircraft were involved in",
+#       length(table(phase.event.vector)), "unique combinations of Flight.Phase and Event.Special categories.")
+# 
+# sort(table(phase.event.vector), decreasing = TRUE)
+# 
+# 
+# # COMBINATION #4
+# # Third combination is Flight.Purpose, Flight.Phase, and Event.Special
+# # The next variable is the index of those records with a non-NA input
+# #       for the Flight.Purpose, Flight.Phase, and Event.Special variables.
+# 
+# purpose.phase.event.ndx = flight.purpose.ndx & flight.phase.ndx & event.special.ndx
+# ggg = c(as.character(events.range$Flight.Purpose[purpose.phase.event.ndx]))
+# hhh = c(as.character(events.range$Flight.Phase[purpose.phase.event.ndx]))
+# jjj = c(as.character(events.range$Event.Special[purpose.phase.event.ndx]))
+# 
+# purpose.phase.event.vector = paste(ggg,hhh,jjj, sep="-")
+# 
+# cat("\n")
+# paste("COMBINATION #4: In the following ordered table of the combination of the Flight.Purpose and Flight.Phase factors,",
+#       length(purpose.phase.event.vector), "aircraft were involed in",
+#       length(table(purpose.phase.event.vector)), "unique combinations of Flight.Purpose, Flight.Phase, and Event.Special categories")
+# 
+# sort(table(purpose.phase.event.vector), decreasing = TRUE)
+# 
+# # === AIRCRAFT CATEGORIES ===
+# # Each aircraft in this database has a number of characteristics, some of which
+# #       can occur only in specific combinations. For example, a particular aircraft model is associated with a 
+# #       specific manufacturer and aircraft type. The following table lists the population of each
+# #       combination of the three variables Aircraft.Manufacturer, Aircraft.Model, and Aircraft Type
+# #  
+# # First, must identify non-NA values for the manufacturer, model, and type
+# maker.ndx = !is.na(events.range$Aircraft.Manufacturer)
+# model.ndx = !is.na(events.range$Aircraft.Model)                                 
+# type.ndx = !is.na(events.range$Aircraft.Type)                                 
+# 
+# maker.model.type.ndx = maker.ndx & model.ndx & type.ndx
+# nnn = c(as.character(events.range$Aircraft.Manufacturer[maker.model.type.ndx]))
+# ppp = c(as.character(events.range$Aircraft.Model[maker.model.type.ndx]))
+# rrr = c(as.character(events.range$Aircraft.Type[maker.model.type.ndx]))
+# 
+# maker.model.type.vector = paste(nnn, ppp, rrr, sep="-")
+# 
+# cat("\n")
+# paste("MANUFACTUER, MODEL, AND TYPE COMPBINATIONS: In the following ordered table of the combination of the Aircraft.Manufacturer, Aircraft.Model, and Aircraft.Type,",
+#       length(maker.model.type.vector), "aircraft were divided among",
+#       length(table(maker.model.type.vector)), " groupings.")
+# 
+# sort(table(maker.model.type.vector), decreasing = TRUE)[1:10]
+# 
+# # === BAR PLOT OF HOURS ===
+# # Using the 24-hour clock, so hours range from 0 to 23
+# # For the vector of hours, convert the first two characters of the 
+# # Event.Time variable to numeric form
+# # Will only use unique events
+# 
+# hour.vector = as.numeric(substr(events.range$Event.Time[events.range.unique.ndx],1,2))
+# 
+# 
+# # Convert hour vector so that time is put into 25 bins
+# #       with bin 1 (coded as "1) including events from 0000 to 0059 hours 
+# #       and bin 25 (coded as "99") being all those events with an unknown time.
+# #       Then create an ordered factor variable from 1-24, plus 99
+# 
+# barplot(table(hour.vector),
+#         main = "Unique events by hour",
+#         xlab = "Hour",
+#         ylab = "Unique events",
+#         col = "dodgerblue")
+# 
+# # === BAR PLOT OF DAYS ===
+# # Bar plot of events by day of the week and ensuring order of days
+# # Will only use unique events
+# 
+# day.vector = weekdays(events.range$Event.Date[events.range.unique.ndx], abbreviate = TRUE)
+# day.vector = factor(day.vector,levels=c("Sun","Mon","Tue","Wed","Thu","Fri","Sat"), ordered=TRUE)
+# 
+# barplot(table(day.vector),
+#         main = "Unique events by weekday",
+#         xlab = "Day",
+#         ylab = "Unique events",
+#         col = "dodgerblue")
+# 
+# # === BAR PLOT OF Months ===
+# # Bar plot of events by month and ensuring the order of months
+# # Will only use unique events
+# 
+# month.vector = months(events$Event.Date[events.range.unique.ndx], abbreviate = TRUE)
+# month.vector = factor(month.vector,levels=c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"), ordered=TRUE)
+# 
+# barplot(table(month.vector),
+#         main = "Unique events by month",
+#         xlab = "Month",
+#         ylab = "Unique events",
+#         col = "dodgerblue")
+# 
+# # === BAR PLOT OF Years ===
+# # Bar plot of events by year
+# # Will only use unique events
+# 
+# year.vector = as.numeric(format(events.range$Event.Date[events.range.unique.ndx],'%Y'))
+# 
+# barplot(table(year.vector),
+#         main = "Unique events by year",
+#         xlab = "Year",
+#         ylab = "Unique events",
+#         col = "dodgerblue")
+# 
+# # Histogram of all events by year for years of interest
+# hist(as.integer(format(as.Date(events.range$Event.Date, format="%Y-%m-%d"),"%Y")), 
+#      main = "Aircraft Events by year",
+#      xlab = "Year",
+#      ylab = "Events",
+#      las = 2)
+# # ==========
+# #Save cleaned and processed data as CSV and Excel files
 
 write.csv(events, file = "events_cleaned.csv")
 
@@ -856,4 +1019,5 @@ paste("Total processing time =",round(difftime(timeEnd,timeStart), digits=2),"se
 # Stop writing to an output file
 sink()
 
+# Copyright (c) 2019 Todd Curtis, All rights reserved
 ################
