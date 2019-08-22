@@ -855,7 +855,7 @@ p = ggplot(training, aes_string("Aircraft.Manufacturer", "Production.Year")) +
         ggtitle(paste('Box plot of Production.Year vs. Aircraft.Manufacturer'))+
         theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
 print(p)
-#dev.off()
+dev.off()
 
 #====RUN LOGISTIC MODEL===
 # This inital run will include all features assumed to be useful for prediction (see cttest)
