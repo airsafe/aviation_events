@@ -240,6 +240,8 @@ events = as.data.frame(apply(events, 2, as.character))
 events = as.data.frame(apply(events, 2, trimws)) 
 
 # Check to see if any records were incomplete
+cat(paste("\n\n"))
+
 ifelse(nrow(events)==nrow(events.raw), 
         paste("No incomplete records detected"), 
         paste("One or more records are incomplete"))
@@ -256,6 +258,8 @@ ifelse(nrow(events)==nrow(events.raw),
 #       Undamaged (U), Attrition (A), Major (M)
 # First, include only those  records with one of these values
 events = events[events$Loss.Severity %in% c("U", "A", "M"),]
+
+# Order the categories in Loss.Severity variable by damage level
 events$Loss.Severity = ordered(events$Loss.Severity, levels = c("U", "A", "M"))
 
 
@@ -324,6 +328,7 @@ events$Event.Date = as.Date(events$Event.Date, "%d-%b-%Y")
 events$Event.Year = as.numeric(format(events$Event.Date,'%Y'))
 
 
+
 #==Create factor variable for multi-aircraft events
 
 # EventID values are unique, but multi-aircraft events share
@@ -337,9 +342,14 @@ multi.event.ndx = which(substr(events$Event.ID,1,8) %in% substr(events$Event.ID[
 # Will now add a binary categorical variable indicating if the aircraft was part of a multi-aircraft event
 events$Multi.Aircraft = substr(events$Event.ID,1,8) %in% substr(events$Event.ID[matching.first.eight.event.id],1,8)
 
+# Will turn this from a logical vector to one with 1's and 0's
+events$Multi.Aircraft = as.integer(as.logical(events$Multi.Aircraft))
+
+cat(paste("\n\n"))
 paste("There were", length(matching.first.eight.event.id), "events involving one or more aircraft.")
+
+cat(paste("\n\n"))
 paste("There were", length(multi.event.ndx), "aircraft involved in multi-aircraft events.")
-cat(paste("\n"))
 
 
 # ==Exclude non-covered models== 
@@ -353,7 +363,7 @@ cat(paste("\n"))
 
 #       Note that non-covered models would be in raw database only if there was
 #       a multi-aircraft event involving a covered aircraft.
-#       Also note that the factor variable "Multi.Aircraft" flags all aircraft involved
+#       Also note that the binary variable "Multi.Aircraft" flags all aircraft involved
 #       in a multiple aircraft event. If the other aircraft was
 #       not a covered model, it was excluded from this prediction algorithm development process.
 
@@ -371,17 +381,18 @@ covered.models = c("A220", "A300", "A310", "A318", "A319", "A320", "A321", "A330
 # First, identify those records that involve included models
 included.models.ndx = events$Aircraft.Model %in% covered.models
 
+# Second, summarize the number of records with included models
+
+cat(paste("\n\n"))
 paste(sum(included.models.ndx), "of the", length(included.models.ndx), "events involve models of interest and will be evaluated further." )
-cat(paste("\n"))
 
 events = events[included.models.ndx,]
 
-
 #==Manage factor features==
-factor.vars = c("Event.Type", "Hour.Category", "Multi.Aircraft", "Operator.Category", "Aircraft.Type", "Flight.Phase", 
+factor.vars = c("Event.Type", "Hour.Category", "Operator.Category", "Aircraft.Type", "Flight.Phase", 
                 "Flight.Purpose","Event.Country", "Event.IATA", "Origin.IATA", "Destination.IATA", 
                  "International.Flight", "Passenger.Flight",          
-                "Scheduled.Flight", "Event.Special",     
+                "Scheduled.Flight", "Event.Special", "Multi.Aircraft", 
                 "Aircraft.Model", "Original.Operator","Engine.Type",
                 "Investigation.Status", "Aircraft.Manufacturer","Registration.Country", "Operator.Country", "Investigating.Authority")
 
@@ -407,8 +418,8 @@ factor.null.values = c( "", "99", "9","999","9999",
 #       when developing prediction algorithm, so following index
 #       excludes categorical features of possible interest.
 #       For example, "Hour.Category" because its missing values
-#       were coded as factor that may figure into the prediction algorithm.
-#       It also has a factor value (9) which may be mistaking for an NA value.
+#       were coded as a factor that may figure into the prediction algorithm.
+#       It also has a factor value (9) which may be mistaken for an NA value.
 #       Excluded features include:
 #       Hour.Category
 #       Investigation.Status
@@ -526,27 +537,49 @@ disregard.ndx = disregard.ndx | is.na(events$Event.Year)
 disregard.ndx = disregard.ndx | is.na(events$Operator.Category) 
 disregard.ndx = disregard.ndx | (is.na(events$Total.Deaths) & is.na(events$Total.Serious.Injuries))
 
+# Somewhat paradoxically, disregard.ndx are the records that have no NAs for critical features
+cat(paste("\n\n"))
+paste("There were", sum(disregard.ndx), "records with NA value for critical variables (features).")
+cat(paste("\n\n"))
+
 # Eliminate the records with missing selected data
 events = events[!disregard.ndx,]
 
+paste("There are", format(nrow(events), digits=5, big.mark = ","), "records with no NA values for critical variables (features).")
+cat(paste("\n\n"))
 
 #==Create numeric features ===
 # Create features Aircraft.Age, Industry.Maturity, Years.Since.Cert
-#       This is an integer value of Event.Year - Production.Year
-#       except when the difference is zero. In that case, change the value to 0.5
+#       All of these will have an A.D. type dating system where 
+#       the earliest year is the year one.
+#       A normalized, or scaled and normalized version of these features will be used,
+#       via the formulat scale(log(<feature>))
 
-# Aircraft.Age
-events$Aircraft.Age = events$Event.Year - events$Production.Year
-paste(sum((events$Event.Year - events$Production.Year)==0),"events occurred same year as  delivery year, adjust age from zero to 0.5")
-events$Aircraft.Age[(events$Event.Year - events$Production.Year)==0] = 0.5
+# Aircraft.Age Normalized only becasue scaled and normalized looked less normally distributed
+events$Aircraft.Age = ((events$Event.Year - events$Production.Year) + 1)
+events$Aircraft.Age.Scaled = scale(events$Aircraft.Age)
 
-# Industry.Maturity (from 1960 to event year)
-events$Industry.Maturity = events$Event.Year - 1960
+# Looking to see how many events happened in first two years
+paste("A total of", sum(events$Aircraft.Age <= 2),"events occurred same year as  delivery year or the following year.")
 
 
-# Years.Since.Cert (1960 to year of certification)
-events$Years.Since.Cert = 2019 - events$Aircraft.Cert.Year
-     
+# Note: Will use categories for range of years, so no need for nuance
+# Vector of events in same year as aircraft manufacture
+# ac_age_zero = (events$Event.Year - events$Production.Year) == 0
+# paste("A total of",sum(ac_age_zero, na.rm = TRUE),"events occurred same year as  delivery year, adjust age from zero to 0.5")
+# events$Aircraft.Age[(events$Event.Year - events$Production.Year)==0] = 0.5
+
+# Industry.Maturity will define year one as the first year
+#       of either certification or manufacture for the aircraft being analyzed
+#       It acts as a relative meaurement of the event year relative to the first year of the industry
+events$Industry.Maturity = (events$Event.Year - min(c(events$Aircraft.Cert.Year,events$Production.Year))) + 1
+events$Industry.Maturity.Scaled = scale(log(events$Industry.Maturity))
+
+# Years.Since.Cert (Current year -year of certification) + 1
+#       Incremented by one to have an A.D. type dating system
+events$Years.Since.Cert = (as.integer(format(Sys.Date(), "%Y")) - events$Aircraft.Cert.Year) + 1
+events$Years.Since.Cert.Scaled = scale(log(events$Years.Since.Cert))
+
 # Create feature Major.Casualties
 # This is the total number of major and fatal injuries
 # The "sum" function (done elementwise using 'apply') is used with na.rm =  TRUE so that if the number of either 
@@ -554,8 +587,8 @@ events$Years.Since.Cert = 2019 - events$Aircraft.Cert.Year
 #       Records were both Total.Deaths Total.Serious.Injuries were NA were previously eliminated.
 events$Major.Casualties = apply(cbind(events$Total.Deaths,events$Total.Serious.Injuries),1,sum,na.rm = TRUE)
 
-# Add Aircraft.Age, Industry.Maturity, Years.Since.Cert and Major.Casualties to numeric variables list
-numeric.vars=c(numeric.vars,"Aircraft.Age", "Industry.Maturity", "Years.Since.Cert", "Major.Casualties")
+# Add newly created numeric features, and any transformed versions, to numeric variables list
+numeric.vars=c(numeric.vars,"Aircraft.Age", "Aircraft.Age.Scaled","Industry.Maturity", "Industry.Maturity.Scaled", "Years.Since.Cert", "Years.Since.Cert.Scaled","Major.Casualties")
 numeric.vars.ndx = which(colnames(events) %in% numeric.vars)
 
 # LABEL CREATION
@@ -638,32 +671,39 @@ na.as.factor = c("Damage.Severity.factor", "Event.Special",
                  "Passenger.Flight", "Flight.Phase", "Aircraft.Type", 
                  "Flight.Purpose", "Operator.Category")
 
-na_to_factor_level(events,na.as.factor) # Function call 
+# Call function that turns NA into a factor level
+na_to_factor_level(events,na.as.factor)  
 
 numeric.vars.ndx = which(colnames(events) %in% numeric.vars)
 factor.vars.ndx = which(colnames(events) %in% factor.vars)
 
 # Check that all variables properly processed
 #       The label Loss.Severity and two features, Event.Time and Event.Date, are
-#       not in an index vector for character, numeric, and factor variables.
+#       not in an index vector for character, numeric, or factor variables.
 #       The total length of these vectors (plus the two variables not in
 #       one of these indices) should equal the number of data frame columns.
 
 if (sum(!(colnames(events) %in% c(numeric.vars,factor.vars, char.vars))) == 0) {
+        cat(paste("\n\n"))
         paste("All data frame columns completed initial processing") 
-} else { paste(sum(!(colnames(events) %in% c(numeric.vars,factor.vars, char.vars))),"variables were not processed")
+} else { cat(paste("\n\n"))
+         paste(sum(!(colnames(events) %in% c(numeric.vars,factor.vars, char.vars))),"variables were not processed")
 }
 
 # PRE-SPLITTING ACTIONS
+cat(paste("\n\n"))
 paste("Prior to splitting the data into a training and test set, let's see where the true NA values are")
 sapply(events,function(x) sum(is.na(x)))
 
+cat(paste("\n\n"))
 paste("Prior to splitting the data into a training and test set, let's see which factors have missing levels")
 sapply(events,function(x) setdiff(levels(x),x))
 
+cat(paste("\n\n"))
 paste("Will now remove unused levels")
 events = droplevels(events)
 
+cat(paste("\n\n"))
 paste("Checking after removal of unused levels to see if any missed")
 sapply(events,function(x) setdiff(levels(x),x))
 
@@ -675,54 +715,131 @@ sapply(events,function(x) setdiff(levels(x),x))
 # Only some of the categorical variables are of interest, 
 #       and others will not be considered
 
-factors.of.interest = c("Loss.Severity", "Aircraft.Age.factor",  "Aircraft.Type", "Damage.Severity.factor", "Event.Type",
-                        "Flight.Phase", "Flight.Purpose", "Hour.Category", "International.Flight","Investigation.Status",
-                        "Major.Casualties.factor", "Multi.Aircraft", "Operator.Category", "Scheduled.Flight")
+# Will use fullRank = TRUE to avoid "dummy trap" or 
+#       linear dependencies
 
-dummies = dummyVars(Loss.Severity ~ . , data = events[,factors.of.interest])
+# Note the label, Loss.Severity doesn't need dummy variables
+#       Those that do are categorigal variables that are suspected to have predictive value.
+#       The dummyVars function helps to identify those dummy variables
+#       that are too rare or that have too little variance to be useful.
+# Note: Took out "Aircraft.Age.factor" because used transformed and scaled
+#       "Aircraft.Age.Scaled" instead
+factors.of.interest = c("Aircraft.Type", "Damage.Severity.factor", "Event.Type",
+                        "Flight.Phase", "Flight.Purpose", "Hour.Category", "International.Flight","Investigation.Status",
+                        "Major.Casualties.factor", "Operator.Category", "Scheduled.Flight")
+
+
+# One feature of interest, "Multi.Aircraft" is not in this list because it is already a binary variable. 
+#       All of the others have three or more levels, and will be made into dummy variables
+
+# Full rank option was false (creating linear dependent dummy variables) due to the expectation 
+#       that one or more of the dummy variables for each feature would be of low or no variance.
+#       Therefore, if at least one is of low or no rank, no linear dependencies
+#       If that is not the case, at least one dummy variable will be removed
+#       from each categorical feature to prevent linear dependencies.
+
+#       If all make the cut, the reference level will be removed manually
+
+dummies = dummyVars("~ ." , data = events[,factors.of.interest], fullRank = F)
 loss_severity_dummies = data.frame(predict(dummies, newdata = events[,factors.of.interest]))
 head(loss_severity_dummies)
 names(loss_severity_dummies)
 dim(loss_severity_dummies)
 
+cat(paste("\n\n"))
+paste("The",length(factors.of.interest), "categorical features of interest put through the dummyVars process resulted in", dim(loss_severity_dummies)[2], "dummy variables to evaluate.")
+
 # The code in the cell below applies the nearZeroVar function and then filters for zero variance or near-zero variance features. 
+# Looking to ignor dummy variables that have the folowing
+#       undesirable characteristics:
+#       - Frequency ratio (freqCut) of over 95/5 from most likely to second most likely category
+#       - Number of unique values divided by number of samples (uniqueCut) is below 10
 near_zero = nearZeroVar(loss_severity_dummies, freqCut = 95/5, uniqueCut = 10, saveMetrics = TRUE)
 low_variance_cols = near_zero[(near_zero$zeroVar == TRUE) | (near_zero$nzv == TRUE), ]
 low_variance_cols
+
+cat(paste("\n\n"))
+paste("A total of",dim(low_variance_cols)[1], "of the", dim(loss_severity_dummies)[2], "dummy variables had low or no variance.")
+
+cat(paste("\n\n"))
+paste("The following",nrow(low_variance_cols),"low or no variance dummy variables should be excluded:")
+rownames(low_variance_cols)
+# Index of near_zero columns to ignore
+dummies_excluded_ndx = which((rownames(near_zero) %in%  rownames(low_variance_cols) ))
+
+cat(paste("\n\n"))
+paste("The following",length(rownames(near_zero)) - length(dummies_excluded_ndx),"dummy variables should be included for further evaluation:")
+dummy_vars_included = rownames(near_zero)[-dummies_excluded_ndx]
+dummy_vars_included
+cat(paste("\n\n"))
+paste("A manual review of the non-low and non-low variance dummy variables from using the fullRank = FALSE option revealed that the following features had all dummy variables pass muster:")
+
+cat(paste("\n\n"))
+paste("International.Flight, Investigation.Status, Scheduled.Flight")
+
+cat(paste("\n\n"))
+paste("In each case, the reference category dummy variable (most likely category) was removed.")
+
+dummy_vars_included = dummy_vars_included[!(dummy_vars_included %in% c("International.Flight.N", "Scheduled.Flight.Y","Investigation.Status.9"))]
+
+# Will combine the surviving dummy variables 
+#       from the data frame loss.severity.dummies
+#       to the events database
+
+# xxy
+# combining with events database
+events = cbind(events,loss_severity_dummies[,dummy_vars_included])
+
+# Columns to analyze, numerical plus the dummy variables
+regress.vars = c("Multi.Aircraft","Aircraft.Age.Scaled", "Industry.Maturity.Scaled","Years.Since.Cert.Scaled", dummy_vars_included )
+
+# Prior decision was to use only two numeric features:
+#       Industry.Maturity and Years.Since.Cert, review of
+#       other variables showed that the log of Aircraft.Age+1 can be 
+#       scaled to look normal.
+# Label and features (numerical and categorigal) in the events data frame
+
+# dummy_vars_excluded = rownames(near_zero)[-dummies_excluded_ndx]
+# dummy_vars_excluded
 
 # Based on these results, low variance dummy variables were identified, and the 
 #       following changes were made
 #       - Hour.Category levels, only level 25 (unknown hour) was not low variance
 #       - Operator.Category, only levels A (airline passenger) or C (airline cargo) are not low variance
 #       - Flight.Purpose, only three levels: AC (airline cargo), AP (airline passenger), 
-#               and NF (not flying) not low variance
-#       - Flight.Phase, only three levels: LG (landing), PP (parked), TG (takeoff), 
-#               and TT (taxi related to flight) not low variance
+#                and NF (not flying) not low variance
+#       - Flight.Phase, only levels: LG (landing), PP (parked), TG (takeoff), 
+#               TT (taxi related to flight), and CL (climb) not low variance
 #       - Event.Type, only AF (fatal accident) and AN (nonfatal accident) were not low variance
 #       Replacement binary dummy variables replaced these features
 
-events$Operator.Category.A = factor(ifelse(events$Operator.Category == "A","T","F"), levels = c("T","F"), ordered = TRUE)
-events$Operator.Category.C = factor(ifelse(events$Operator.Category == "C","T","F"), levels = c("T","F"), ordered = TRUE)
-events$Hour.Category.25 = factor(ifelse(events$Hour.Category == "25","T","F"), levels = c("T","F"), ordered = TRUE)
-events$Flight.Purpose.AC = factor(ifelse(events$Flight.Purpose == "AC","T","F"), levels = c("T","F"), ordered = TRUE)
-events$Flight.Purpose.AP = factor(ifelse(events$Flight.Purpose == "AP","T","F"), levels = c("T","F"), ordered = TRUE)
-events$Flight.Purpose.NF = factor(ifelse(events$Flight.Purpose == "NF","T","F"), levels = c("T","F"), ordered = TRUE)
-events$Flight.Phase.LG = factor(ifelse(events$Flight.Phase == "LG","T","F"), levels = c("T","F"), ordered = TRUE)
-events$Flight.Phase.PP = factor(ifelse(events$Flight.Phase == "PP","T","F"), levels = c("T","F"), ordered = TRUE)
-events$Flight.Phase.TG = factor(ifelse(events$Flight.Phase == "TG","T","F"), levels = c("T","F"), ordered = TRUE)
-events$Event.Type.AF = factor(ifelse(events$Event.Type == "AF","T","F"), levels = c("T","F"), ordered = TRUE)
-events$Event.Type.AN = factor(ifelse(events$Event.Type == "AN","T","F"), levels = c("T","F"), ordered = TRUE)
-events$Investigation.Status.1 = factor(ifelse(events$Investigation.Status == "1","T","F"), levels = c("T","F"), ordered = TRUE)
-events$Investigation.Status.2 = factor(ifelse(events$Investigation.Status == "2","T","F"), levels = c("T","F"), ordered = TRUE)
-events$Investigation.Status.9 = factor(ifelse(events$Investigation.Status == "9","T","F"), levels = c("T","F"), ordered = TRUE)
+# After identifying the low variance factor variables, the remaining
+#       ones of interest are transformed into binary factor variables for further analysis
+# events$Operator.Category.A = factor(ifelse(events$Operator.Category == "A","T","F"), levels = c("T","F"), ordered = TRUE)
+# events$Operator.Category.C = factor(ifelse(events$Operator.Category == "C","T","F"), levels = c("T","F"), ordered = TRUE)
+# events$Hour.Category.25 = factor(ifelse(events$Hour.Category == "25","T","F"), levels = c("T","F"), ordered = TRUE)
+# events$Flight.Purpose.AC = factor(ifelse(events$Flight.Purpose == "AC","T","F"), levels = c("T","F"), ordered = TRUE)
+# events$Flight.Purpose.AP = factor(ifelse(events$Flight.Purpose == "AP","T","F"), levels = c("T","F"), ordered = TRUE)
+# events$Flight.Purpose.NF = factor(ifelse(events$Flight.Purpose == "NF","T","F"), levels = c("T","F"), ordered = TRUE)
+# events$Flight.Phase.LG = factor(ifelse(events$Flight.Phase == "LG","T","F"), levels = c("T","F"), ordered = TRUE)
+# events$Flight.Phase.PP = factor(ifelse(events$Flight.Phase == "PP","T","F"), levels = c("T","F"), ordered = TRUE)
+# events$Flight.Phase.TG = factor(ifelse(events$Flight.Phase == "TG","T","F"), levels = c("T","F"), ordered = TRUE)
+# events$Event.Type.AF = factor(ifelse(events$Event.Type == "AF","T","F"), levels = c("T","F"), ordered = TRUE)
+# events$Event.Type.AN = factor(ifelse(events$Event.Type == "AN","T","F"), levels = c("T","F"), ordered = TRUE)
+# events$Investigation.Status.1 = factor(ifelse(events$Investigation.Status == "1","T","F"), levels = c("T","F"), ordered = TRUE)
+# events$Investigation.Status.2 = factor(ifelse(events$Investigation.Status == "2","T","F"), levels = c("T","F"), ordered = TRUE)
+# events$Investigation.Status.9 = factor(ifelse(events$Investigation.Status == "9","T","F"), levels = c("T","F"), ordered = TRUE)
 
-factor.var.dummies = c("Operator.Category.A", "Operator.Category.C",
-                      "Hour.Category.25", "Flight.Purpose.AC", "Flight.Purpose.AP", "Flight.Purpose.NF",
-                      "Flight.Phase.LG", "Flight.Phase.PP", "Flight.Phase.TG",
-                      "Event.Type.AF","Event.Type.AN", "Investigation.Status.1", "Investigation.Status.2", "Investigation.Status.9" )
-factor.vars = c(factor.vars, factor.var.dummies)
-factor.vars.ndx = which(colnames(events) %in% factor.vars)
-
+# factor.var.dummies is the same as dummy_vars_included
+# factor.var.dummies = c("Operator.Category.A", "Operator.Category.C",
+#                       "Hour.Category.25", "Flight.Purpose.AC", "Flight.Purpose.AP", "Flight.Purpose.NF",
+#                       "Flight.Phase.LG", "Flight.Phase.PP", "Flight.Phase.TG",
+#                       "Event.Type.AF","Event.Type.AN", "Investigation.Status.1", "Investigation.Status.2", "Investigation.Status.9" )
+# factor.vars = c(factor.vars, factor.var.dummies)
+# 
+# 
+# factor.vars.ndx = which(colnames(events) %in% factor.vars)
+# 
 
 
 # Aternately, can alter the previously created data frame as follows:
@@ -755,35 +872,51 @@ set.seed(1955)
 ## Randomly sample cases to create independent training and test data, with 70% of the data
 ##      dedicated to training and 30% to testing
 partition = createDataPartition(events[,'Loss.Severity'], times = 1, p = 0.7, list = FALSE)
+
+# Training set
 training = events[partition,] # Create the training sample
 dim(training)
+
+# Test set
 test = events[-partition,] # Create the test sample
 dim(test)
 
-
-# Print out all column names, then by type
 cat(paste("\n\n"))
-paste("Column names are:")
-
-sort(colnames(training))
-
+paste("A total of ",format(nrow(events), digits=5, big.mark = ","), "records were used in this analysis.")
 
 cat(paste("\n\n"))
-paste("Numeric labels are")
-sort(colnames(training[,numeric.vars.ndx]))
+paste("Training set has",format(nrow(training), digits=5, big.mark = ","), "records")
 
 cat(paste("\n\n"))
-paste("Factor lables are")
-sort(colnames(training[,factor.vars.ndx]))
+paste("Test set has",format(nrow(test), digits=5, big.mark = ","), "records")
+
+
+# Print out all feature names
+cat(paste("\n\n"))
+paste("Features names are:")
+sort(regress.vars)
 
 cat(paste("\n\n"))
-paste("Character labels are")
-sort(colnames(training[,char.vars.ndx]))
-
-
-cat(paste("\n\n"))
-paste("Other labels are:")
-sort(colnames(training[,-c(factor.vars.ndx, char.vars.ndx, numeric.vars.ndx)]))
+paste("Feature summaries are:")
+str(events[,regress.vars])
+# 
+# 
+# cat(paste("\n\n"))
+# paste("Numeric labels are")
+# sort(colnames(training[,numeric.vars.ndx]))
+# 
+# cat(paste("\n\n"))
+# paste("Factor lables are")
+# sort(colnames(training[,factor.vars.ndx]))()
+# 
+# cat(paste("\n\n"))
+# paste("Character labels are")
+# sort(colnames(training[,char.vars.ndx]))
+# 
+# 
+# cat(paste("\n\n"))
+# paste("Other labels are:")
+# sort(colnames(training[,-c(factor.vars.ndx, char.vars.ndx, numeric.vars.ndx)]))
 
 # ====Post initial cleaning actions====
 # After cleaning the database, including setting missing
@@ -794,38 +927,41 @@ sort(colnames(training[,-c(factor.vars.ndx, char.vars.ndx, numeric.vars.ndx)]))
 
 # === Summary of complete database ===
 
-cat("\n")
+cat(paste("\n\n"))
 paste("=== Summary of the training database ===")
 str(training)
-cat("\n")
 
 
+cat(paste("\n\n"))
 paste("Aircraft event date range for full database:", 
       min(training$Event.Date),"to",
       max(training$Event.Date))
-cat("\n")
 
 
-paste("Date variable is Event.Date")
-cat("\n")
 
+# paste("Date variable is Event.Date")
+
+cat(paste("\n\n"))
 paste("Number of aircraft events used for model -",nrow(training))
-cat("\n")
 
+cat(paste("\n\n"))
 paste("Number of unique events in training database -",nrow(training) - length(which(duplicated(substr(training$Event.ID,1,8)))) )
-cat("\n")
+
 
 # ===Data summaries===
+cat(paste("\n\n"))
 paste("===Summaries of all data from factor and numeric features===")
-apply(training[,c(numeric.vars.ndx,factor.vars.ndx)],2,table, useNA = "always")
+apply(training[,regress.vars],2,table, useNA = "always")
 
-# NUMERIC FEATURES HISTOGRAM AND PLAIN TEXT TABLES
-# Boxplots for selected numeric variable by label (Loss.Severity) value
-basic_boxplot(training,numeric.vars,model.label)  
+# HISTOGRAMS AND BOX PLOTS FOR TRAINING SET FEATURES
+# Boxplots for numeric variable by label (Loss.Severity) value
+# Boxplots only sensible for numeric labels
+regress.vars.numeric = c("Aircraft.Age.Scaled","Industry.Maturity.Scaled", "Years.Since.Cert.Scaled")
+basic_boxplot(training,regress.vars.numeric,model.label)  
 
 
 # Histograms for selected numeric variables
-basic_hist(training,numeric.vars)
+basic_hist(training,regress.vars.numeric)
 
 
 # FACTOR FEATURES
@@ -847,12 +983,13 @@ for (i in 1:length(factor.vars.ndx)){
 
 #  BOXPLOTS AND PLAIN TEXT TALBES OF SELECTED FACTOR FEATURES
 # Boxplots for factor variables
-plot_factor(training, factor.vars[c(3,5,13:18,20,25:38)])   
+# plot_factor(training, factor.vars[c(3,5,13:18,20,25:38)])   
 
 # Boxplots for factor variable by Loss.Severity value compared to Loss.Severity subpopulations
-plot_bars(training, factor.vars[c(3,5,13:18,20,25:38)])   
+# plot_bars(training, factor.vars[c(3,5,13:18,20,25:38)])   
 
 # Text tables of factor variables
+cat(paste("\n\n"))
 paste("===Text tables of factor variables===")
 apply(training[,factor.vars.ndx],2,table, useNA="always")
 
@@ -868,13 +1005,27 @@ dev.off()
 #====RUN LOGISTIC MODEL===
 # This inital run will include all features assumed to be useful for prediction (see cttest)
 
-cttest= c(factor.var.dummies, "Aircraft.Age.factor", "Aircraft.Type", "Damage.Severity.factor",
-            "Industry.Maturity", 
-          "International.Flight", "Investigation.Status", "Major.Casualties.factor",
-          "Multi.Aircraft",  "Scheduled.Flight", "Years.Since.Cert") 
+# cttest= c(factor.var.dummies, "Aircraft.Age.factor", "Aircraft.Type", "Damage.Severity.factor",
+#             "Industry.Maturity", 
+#           "International.Flight", "Investigation.Status", "Major.Casualties.factor",
+#           "Multi.Aircraft",  "Scheduled.Flight", "Years.Since.Cert") 
 
+cttest = c("Multi.Aircraft", "Aircraft.Type.A", "Aircraft.Type.B",        
+                   "Aircraft.Type.C", "Aircraft.Type.D", "Damage.Severity.factor.L",
+                   "Damage.Severity.factor.Q", "Damage.Severity.factor.C", "Damage.Severity.factor.4",
+                   "Damage.Severity.factor.5", "Event.Type.AF", "Event.Type.AN", "Flight.Phase.CL",       
+                   "Flight.Phase.LG", "Flight.Phase.PP", "Flight.Phase.TG", "Flight.Phase.TT",         
+                   "Flight.Purpose.AC", "Flight.Purpose.AP", "Flight.Purpose.NF", "Hour.Category.25",        
+                   "International.Flight.X", "International.Flight.Y", "Investigation.Status.1",
+                   "Investigation.Status.2", "Major.Casualties.factor.L", "Major.Casualties.factor.Q",
+                   "Operator.Category.A", "Operator.Category.C", "Scheduled.Flight.N", "Scheduled.Flight.X")
+cat(paste("\n\n"))
 paste("Factor features for logistic regression")
 sort(cttest)
+
+cat(paste("\n\n"))
+paste("Numeric features for logistic regression")
+sort(regress.vars.numeric)
 
 # Check for NA values in training or test
 # sapply(training,function(x) sum(is.na(x)))
@@ -891,20 +1042,32 @@ sort(cttest)
 #               Notice that these computations are done only with the training data.
 # The transformations are applied to both the training and test dataset.
 
-num_cols = c('Industry.Maturity', 'Years.Since.Cert')
-preProcValues <- preProcess(training[,num_cols], method = c("center", "scale"))
-
-training[,num_cols] = predict(preProcValues, training[,num_cols])
-test[,num_cols] = predict(preProcValues, test[,num_cols])
-head(training[,num_cols])
+# num_cols = c('Industry.Maturity', 'Years.Since.Cert')
+# preProcValues <- preProcess(training[,num_cols], method = c("center", "scale"))
+# 
+# training[,num_cols] = predict(preProcValues, training[,num_cols])
+# test[,num_cols] = predict(preProcValues, test[,num_cols])
+# head(training[,num_cols])
 
 set.seed(5656)
-multinom_mod = multinom(Loss.Severity ~ Aircraft.Type + Damage.Severity.factor + Event.Type.AF + 
-                           Event.Type.AN + 
-                           Flight.Purpose.AC + Flight.Purpose.AP + Flight.Purpose.NF +        
-                           International.Flight + 
-                           Operator.Category.A + Operator.Category.C + Scheduled.Flight, 
+multinom_mod = multinom(Loss.Severity ~ Multi.Aircraft + Aircraft.Age.Scaled + Industry.Maturity.Scaled +
+                                Years.Since.Cert.Scaled + Aircraft.Type.A + Aircraft.Type.B +         
+                                Aircraft.Type.C + Aircraft.Type.D + Damage.Severity.factor.L + 
+                                Damage.Severity.factor.Q + Damage.Severity.factor.C + Damage.Severity.factor.4 + 
+                                Damage.Severity.factor.5 + Event.Type.AF + Event.Type.AN + Flight.Phase.CL +        
+                                Flight.Phase.LG + Flight.Phase.PP + Flight.Phase.TG + Flight.Phase.TT +          
+                                Flight.Purpose.AC + Flight.Purpose.AP + Flight.Purpose.NF + Hour.Category.25 +         
+                                International.Flight.X + International.Flight.Y + Investigation.Status.1 + 
+                                Investigation.Status.2 + Major.Casualties.factor.L + Major.Casualties.factor.Q +
+                                Operator.Category.A + Operator.Category.C + Scheduled.Flight.N + Scheduled.Flight.X, 
                            data = training)
+
+# multinom_mod = multinom(Loss.Severity ~ Aircraft.Type + Damage.Severity.factor + Event.Type.AF + 
+#                                 Event.Type.AN + 
+#                                 Flight.Purpose.AC + Flight.Purpose.AP + Flight.Purpose.NF +        
+#                                 International.Flight + 
+#                                 Operator.Category.A + Operator.Category.C + Scheduled.Flight, 
+#                         data = training)
 
 summary(multinom_mod)
 
@@ -936,9 +1099,10 @@ multi.logistic.eval <- function(predict.vec,label.vec){
         #       and both the precision and recall values for each factor level of the label
         
         # First step is to print the confusion matrix
+        cat(paste("\n\n"))
         cat(paste('Confusion matrix','\n'))
         print(table(predict.vec, label.vec, dnn = c("Predicted","Actual")))
-        cat(paste('\n'))
+     
         
         # Next step is to get precision and recall values for each factor level
         # First initialize precision and recall vectors
