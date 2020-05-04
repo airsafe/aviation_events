@@ -93,54 +93,53 @@ if("haven" %in% rownames(installed.packages()) == FALSE)
 library(haven)
 # ====  FUNCTIONS ====
 basic_multinom = function(training_label_vec,model_vars_training, label_and_vars_test){
-# General linear model with a label that is a factor with two or more levels.
-# Function runs the model using the label and all remaining colums in the data frame.
-# Inputs: 
-#       training_label_vec: Labels from training set
-#       model_vars_training: Features from training data
-#       label_and_vars_test: The labels and features from the test data
-# Outputs: No output, function directly calls a function to create the confustion matrix.
+        # General linear model with a label that is a factor with two or more levels.
+        # Function runs the model using the label and all remaining colums in the data frame.
+        # Inputs: 
+        #       training_label_vec: Labels from training set
+        #       model_vars_training: Features from training data
+        #       label_and_vars_test: The labels and features from the test data
+        # Outputs: No output, function directly calls a function to create the confustion matrix.
         
-
-set.seed(5656)
-
-multinom_mod = multinom(training_label_vec ~., data = model_vars_training)
         
-print(summary(multinom_mod))
+        set.seed(5656)
         
-# Calculate p-values using Wald tests (here z-tests)
-z <- summary(multinom_mod)$coefficients/summary(multinom_mod)$standard.errors
-       predicted_scores <- predict (multinom_mod,  label_and_vars_test, "probs") # predict on new data
+        multinom_mod = multinom(training_label_vec ~., data = model_vars_training)
         
-# 2-tailed z test
-p <- (1 - pnorm(abs(z), 0, 1)) * 2
-print(p)
+        print(summary(multinom_mod))
         
-print(head(predicted_scores))
+        # Calculate p-values using Wald tests (here z-tests)
+        z <- summary(multinom_mod)$coefficients/summary(multinom_mod)$standard.errors
+        predicted_scores <- predict (multinom_mod,  label_and_vars_test, "probs") # predict on new data
         
-predicted_class <- predict(multinom_mod, label_and_vars_test)
-
-print(table(predicted_class))
-
+        # 2-tailed z test
+        p <- (1 - pnorm(abs(z), 0, 1)) * 2
+        print(p)
         
-# multi.logistic.eval is a function that takes the predicted labels
-#       and actual labels and creates the confusion matrix
-multi.logistic.eval(predicted_class, label_and_vars_test[,1])
- 
-# NOTE: Can combine  this function with multi.logistic.eval by setting:
-#       predict.vec = predicted_class and 
-#       label.vec = label_and_vars_test[,1]
+        print(head(predicted_scores))
+        
+        predicted_class <- predict(multinom_mod, label_and_vars_test)
+        
+        predicted_class
+        
+        # multi.logistic.eval is a function that takes the predicted labels
+        #       and actual labels and creates the confusion matrix
+        # multi.logistic.eval(predicted_class, label_and_vars_test[,1])
+        
+        # NOTE: Can combine  this function with multi.logistic.eval by setting:
+        #       predict.vec = predicted_class and 
+        #       label.vec = label_and_vars_test[,1]
 }
 
 
 
 multi.logistic.eval <- function(predict.vec,label.vec){
-# This function below creates a confusion matrix and evaluates the model 
-# For a multinomial logistic regression, takes the label and the prediction
-#       vector and creates both the confusion matrix, overall accuracy, 
-#       and both the precision and recall values for each factor level of the label
+        # This function below creates a confusion matrix and evaluates the model 
+        # For a multinomial logistic regression, takes the label and the prediction
+        #       vector and creates both the confusion matrix, overall accuracy, 
+        #       and both the precision and recall values for each factor level of the label
         
-# First step is to print the confusion matrix
+        # First step is to print the confusion matrix
         cat(paste("\n\n"))
         cat(paste('Confusion matrix','\n'))
         print(table(predict.vec, label.vec, dnn = c("Predicted","Actual")))
@@ -323,6 +322,30 @@ na_to_factor_level = function(df, cat_cols){
                 df[,col] = addNA(df[,col])
         }
 }
+one_hotted_factors <- function(df_of_factors){
+        # Input is the set of factor features and output are both the full set of low variance one hot codings of those factors
+        
+        dummies = dummyVars("~ ." , data = df_of_factors, fullRank = F)
+        # Full rank option is false for a one hot encoding (creating linear dependent dummy variables).
+        
+        df_dummies = data.frame(predict(dummies, newdata = df_of_factors))
+        df_dummies
+}
+
+low_var_dummies  <- function(one_hotted_df){
+        # This function takes a set of one hot encoded dummy variables and
+        #       identifies those that are of low variance.
+        
+        # The code in the cell below applies the nearZeroVar function and then filters for zero variance or near-zero variance features. 
+        # Looking to ignore dummy variables that have the folowing undesirable characteristics:
+        #       - Frequency ratio (freqCut) of over 95/5 from most likely to second most likely category
+        #       - Number of unique values divided by number of samples (uniqueCut) is below 10
+        # The main effect is to ignore rare codings
+        near_zero = nearZeroVar(one_hotted_df, freqCut = 95/5, uniqueCut = 10, saveMetrics = TRUE)
+        low_variance_cols = near_zero[(near_zero$zeroVar == TRUE) | (near_zero$nzv == TRUE), ]
+        low_variance_cols
+}
+
 # ==========
 # Normalizing numeric data
 
@@ -630,7 +653,6 @@ for (i in 1:length(char.vars.ndx)) {
 }
 
 
-
 #==Eliminate  records with NA values for selected features ==
 # Several features are combined to produce values relevant to a prediction algorithm
 #       If a record has an NA value for one of more of the combined features, it should be 
@@ -830,47 +852,33 @@ factors.of.interest = c("Aircraft.Type", "Damage.Severity.factor", "Event.Type",
 # One feature of interest, "Multi.Aircraft" is not in this list because it is already a binary variable. 
 #       All of the others have three or more levels, and will be made into dummy variables
 
-# Full rank option was false (creating linear dependent dummy variables) due to the expectation 
-#       that one or more of the dummy variables for each feature would be of low or no variance.
-#       Therefore, if at least one is of low or no rank, no linear dependencies
-#       If that is not the case, at least one dummy variable will be removed
-#       from each categorical feature to prevent linear dependencies.
 
-#       If all make the cut, the reference level will be removed manually
-
-dummies = dummyVars("~ ." , data = events[,factors.of.interest], fullRank = F)
-loss_severity_dummies = data.frame(predict(dummies, newdata = events[,factors.of.interest]))
-head(loss_severity_dummies)
-names(loss_severity_dummies)
-dim(loss_severity_dummies)
+training_factor_dummies = one_hotted_factors(events[,factors.of.interest])
+head(training_factor_dummies)
+names(training_factor_dummies)
+dim(training_factor_dummies)
 
 cat(paste("\n\n"))
-paste("The",length(factors.of.interest), "categorical features of interest put through the dummyVars process resulted in", dim(loss_severity_dummies)[2], "dummy variables to evaluate.")
+paste("The",length(factors.of.interest), "categorical features of interest put through one hot encoding resulted in", dim(training_factor_dummies)[2], "dummy variables to evaluate.")
 
-# The code in the cell below applies the nearZeroVar function and then filters for zero variance or near-zero variance features. 
-# Looking to ignor dummy variables that have the folowing undesirable characteristics:
-#       - Frequency ratio (freqCut) of over 95/5 from most likely to second most likely category
-#       - Number of unique values divided by number of samples (uniqueCut) is below 10
-# The main effect is to ignore rare codings
-near_zero = nearZeroVar(loss_severity_dummies, freqCut = 95/5, uniqueCut = 10, saveMetrics = TRUE)
-low_variance_cols = near_zero[(near_zero$zeroVar == TRUE) | (near_zero$nzv == TRUE), ]
-low_variance_cols
+low_variance_cols = low_var_dummies(training_factor_dummies)
+
 
 cat(paste("\n\n"))
-paste("A total of",dim(low_variance_cols)[1], "of the", dim(loss_severity_dummies)[2], "dummy variables had low or no variance.")
+paste("A total of",nrow(low_variance_cols), "of the", ncol(training_factor_dummies), "dummy variables had low or no variance.")
 
 cat(paste("\n\n"))
 paste("The following",nrow(low_variance_cols),"low or no variance dummy variables should be excluded:")
 rownames(low_variance_cols)
-# Index of near_zero columns to ignore
-dummies_excluded_ndx = which((rownames(near_zero) %in%  rownames(low_variance_cols) ))
+# Index of zero variance near_zero variance columns to ignore
+dummies_excluded_ndx = which((colnames(training_factor_dummies) %in%  rownames(low_variance_cols) ))
 
 cat(paste("\n\n"))
-paste("The following",length(rownames(near_zero)) - length(dummies_excluded_ndx),"dummy variables should be included for further evaluation:")
-dummy_vars_included = rownames(near_zero)[-dummies_excluded_ndx]
+paste("The following",length(colnames(training_factor_dummies)) - length(dummies_excluded_ndx),"dummy variables should be included for further evaluation:")
+dummy_vars_included = colnames(training_factor_dummies)[-dummies_excluded_ndx]
 dummy_vars_included
 cat(paste("\n\n"))
-paste("A manual review of the non-low and non-low variance dummy variables from using the fullRank = FALSE option revealed that the following features had all dummy variables pass muster:")
+paste("A manual review of the non-low and non-low variance dummy variables from using the fullRank = FALSE (one hot encoding) option revealed that the following features had all dummy variables pass muster:")
 
 cat(paste("\n\n"))
 paste("International.Flight, Investigation.Status, Scheduled.Flight")
@@ -886,16 +894,14 @@ dummy_vars_included = dummy_vars_included[!(dummy_vars_included %in% c("Internat
 
 
 # combining with events database
-events = cbind(events,loss_severity_dummies[,dummy_vars_included])
+events = cbind(events,training_factor_dummies[,dummy_vars_included])
 
 # Columns to analyze, numerical plus the dummy variables
 # Appropriately scaled versionsl of the following will be added to regress.vars after data is split:
 #       "Aircraft.Age", "Industry.Maturity", "Years.Since.Cert.Scaled"
 regress.vars = c("Multi.Aircraft", dummy_vars_included )
 
-
-
-#===SPLITTING THE DATASET===
+#===SPLITTING THE DATASET BASIC TRAINING===
 # Before any scaling of the features, the database will be partitioned based on the 
 # prevelance of the label.  
 table(events$Loss.Severity, useNA = "always")
@@ -996,9 +1002,9 @@ basic_hist(training,regress.vars.numeric)
 #       be decreasing in size from left to right. To do that,
 #       they will be ranked by popularity
 
-# for (i in 1:length(factor.vars.ndx)){
-#         training[,factor.vars.ndx[i]] = factor(training[,factor.vars.ndx[i]], levels = names(sort(table(training[,factor.vars.ndx[i]]), decreasing=TRUE)))
-# }
+for (i in 1:length(factor.vars.ndx)){
+        training[,factor.vars.ndx[i]] = factor(training[,factor.vars.ndx[i]], levels = names(sort(table(training[,factor.vars.ndx[i]]), decreasing=TRUE)))
+}
 
 # Now that they are ranked, the following calls
 #       to a function will display selected
@@ -1022,110 +1028,107 @@ apply(training[,factor.vars.ndx],2,table, useNA="always")
 # print(p)
 # dev.off()
 
-#====RUN LOGISTIC MODEL===
-# This inital run will include all features assumed to be useful for prediction (see cttest)
-
-# cttest= c(factor.var.dummies, "Aircraft.Age.factor", "Aircraft.Type", "Damage.Severity.factor",
-#             "Industry.Maturity", 
-#           "International.Flight", "Investigation.Status", "Major.Casualties.factor",
-#           "Multi.Aircraft",  "Scheduled.Flight", "Years.Since.Cert") 
-
-# cttest = c("Multi.Aircraft", "Aircraft.Type.A", "Aircraft.Type.B",        
-#            "Aircraft.Type.C", "Aircraft.Type.D", "Damage.Severity.factor.L",
-#            "Damage.Severity.factor.Q", "Damage.Severity.factor.C", "Damage.Severity.factor.4",
-#            "Damage.Severity.factor.5", "Event.Type.AF", "Event.Type.AN", "Flight.Phase.CL",       
-#            "Flight.Phase.LG", "Flight.Phase.PP", "Flight.Phase.TG", "Flight.Phase.TT",         
-#            "Flight.Purpose.AC", "Flight.Purpose.AP", "Flight.Purpose.NF", "Hour.Category.25",        
-#            "International.Flight.X", "International.Flight.Y", "Investigation.Status.1",
-#            "Investigation.Status.2", "Major.Casualties.factor.L", "Major.Casualties.factor.Q",
-#            "Operator.Category.A", "Operator.Category.C", "Scheduled.Flight.N", "Scheduled.Flight.X")
-# cat(paste("\n\n"))
-# paste("Factor features for logistic regression")
-# sort(cttest)
 
 cat(paste("\n\n"))
 paste("Numeric features for logistic regression")
 sort(regress.vars.numeric)
 
-# Check for NA values in training or test
-# sapply(training,function(x) sum(is.na(x)))
-# sapply(test,function(x) sum(is.na(x)))
 
-# SCALE NUMERIC FEATURES
-# Prior to running the model, numeric features will be scaled (normalized)
-# Both numeric and factor features will be evaluated to see if one or 
-#       more will be transformed prior to use in the prediction algorithm.
-# Prior to this point in the processing, none of the transformations required actions 
-#       that relied on summary information about the feature as a whole, such as the sum.
-# The code in the cell below does the following:
-#       - Calls a caret package preProcess object for centering and scaling the data. 
-#               Notice that these computations are done only with the training data.
-# The transformations are applied to both the training and test dataset.
+#===BASE MODEL CREATION===
+cat(paste("\n\n"))
+paste("===BASE MODEL CREATION===")
 
-# num_cols = c('Industry.Maturity', 'Years.Since.Cert')
-# preProcValues <- preProcess(training[,num_cols], method = c("center", "scale"))
-# 
-# training[,num_cols] = predict(preProcValues, training[,num_cols])
-# test[,num_cols] = predict(preProcValues, test[,num_cols])
-# head(training[,num_cols])
-
-# Traning input includes only regression features
+# Training input includes only regression features
 model_vars_training = training[,regress.vars]
 # Test input includes regression features and label
 label_and_vars_test = test[,c(model.label,regress.vars)]
 
-# set.seed(5656)
-# multinom_mod = multinom(Loss.Severity ~ Multi.Aircraft + Aircraft.Age.Scaled + Industry.Maturity.Scaled +
-#                                 Years.Since.Cert.Scaled + Aircraft.Type.A + Aircraft.Type.B +         
-#                                 Aircraft.Type.C + Aircraft.Type.D + Damage.Severity.factor.L + 
-#                                 Damage.Severity.factor.Q + Damage.Severity.factor.C + Damage.Severity.factor.4 + 
-#                                 Damage.Severity.factor.5 + Event.Type.AF + Event.Type.AN + Flight.Phase.CL +        
-#                                 Flight.Phase.LG + Flight.Phase.PP + Flight.Phase.TG + Flight.Phase.TT +          
-#                                 Flight.Purpose.AC + Flight.Purpose.AP + Flight.Purpose.NF + Hour.Category.25 +         
-#                                 International.Flight.X + International.Flight.Y + Investigation.Status.1 + 
-#                                 Investigation.Status.2 + Major.Casualties.factor.L + Major.Casualties.factor.Q +
-#                                 Operator.Category.A + Operator.Category.C + Scheduled.Flight.N + Scheduled.Flight.X, 
-#                         data = training)
-# 
-# 
-# summary(multinom_mod)
-# xxy
-# Will create testing and training data frames with only the model label and selected features for the model
+# The following function takes as input the vector of training labels, the data frame of the training features,
+#       and a data frame that combines the test labels and test features to create the confusion matrix and associated statistics.
+predicted_class = basic_multinom(training[,model.label],model_vars_training,label_and_vars_test)
+
+# Now for the confusion matrix
+multi.logistic.eval(predicted_class, label_and_vars_test[,1]) 
+
+#===PREDICTING THE MOST RECENT TWO CALENDAR YEARS===
+cat(paste("\n\n"))
+paste("===PREDICTING THE MOST RECENT TWO CALENDAR YEARS===")
+
+# Unlike the base model prediction algorithm,
+#       the data will be split based on the year of the event, with 
+#       the current year and previous year being in the test set, and
+#       the prior years (1997 until two previous year prior to the current year)
+#       being in the test set. 
+# This approach is based on the assumption that it takes over a year
+#       before it becomes clear, either through offficial investigations,
+#       industry media reports, or privately acquired data, whether an event
+#       clearly qualifies as a Major loss.
+
+cat(paste("\n\n"))
+paste("This prediction an confusion matrix uses the base model developed earlier, and the same scaling and feature choices as the base prediction")
+
+# Current year value
+current.year = as.integer(format(Sys.Date(), "%Y"))
+
+recent.events.vec = (events$Event.Year >= (current.year-1) )
+sum(recent.events.vec)
+
+recent.training = events[!recent.events.vec,]
+recent.test = events[recent.events.vec,]
+
+# Now to scale the appropriate numeric features
+
+recent.training$Aircraft.Age.Scaled = scale(recent.training$Aircraft.Age)
+recent.training$Industry.Maturity.Scaled = scale(log(recent.training$Industry.Maturity))
+recent.training$Years.Since.Cert.Scaled = scale(log(recent.training$Years.Since.Cert))
+
+recent.test$Aircraft.Age.Scaled = scale(recent.test$Aircraft.Age)
+recent.test$Industry.Maturity.Scaled = scale(log(recent.test$Industry.Maturity))
+recent.test$Years.Since.Cert.Scaled = scale(log(recent.test$Years.Since.Cert))
+
+# Training input includes only regression features
+model_vars_training = recent.training[,regress.vars]
+# Test input includes regression features and label
+label_and_vars_test = recent.test[,c(model.label,regress.vars)]
 
 # The following function takes as input the vector of training labels, the data frame of the training features,
 #       and a data frame that combines the test labels and test features to create the confusion matrix and associated statistics.
-basic_multinom(training[,model.label],model_vars_training,label_and_vars_test)
+predicted_class = basic_multinom(recent.training[,model.label],model_vars_training,label_and_vars_test)
 
-# multinom_mod = multinom(model_vars_training[,1] ~., data = model_vars_training)
-# 
-# summary(multinom_mod)
+# Now for the confusion matrix
+multi.logistic.eval(predicted_class, label_and_vars_test[,1]) 
 
-# Calculate p-values using Wald tests (here z-tests)
-# z <- summary(multinom_mod)$coefficients/summary(multinom_mod)$standard.errors
-# predicted_scores <- predict (multinom_mod, test, "probs") # predict on new data
-# predicted_scores <- predict (multinom_mod, model_vars_test, "probs") # predict on new data
+cat(paste("\n\n"))
+paste("Events that are predicted to be Major loss, but currently coded as Attrition loss")
+sort(recent.test$Event.ID[which(predicted_class=="M")[!(which(predicted_class=="M") %in% which(label_and_vars_test[,1]=="M"))]])
 
-# 2-tailed z test
-# p <- (1 - pnorm(abs(z), 0, 1)) * 2
-# p
+cat(paste("\n\n"))
+paste("Events that are predicted to be Major loss, and currently coded as Major loss")
+sort(recent.test$Event.ID[which(label_and_vars_test[,1]=="M")])
+
+cat(paste("\n\n"))
+paste("Events that are predicted to be Major loss")
+sort(recent.test$Event.ID[which(predicted_class=="M")])
 
 
-# head(predicted_scores)
+#======== SAME LOW AND NO VARIANCE FACTORS? =====
+training_factor_dummies = one_hotted_factors(recent.training[,factors.of.interest])
+head(training_factor_dummies)
+names(training_factor_dummies)
+dim(training_factor_dummies)
 
-# predicted_class <- predict(multinom_mod, test)
-# predicted_class <- predict(multinom_mod, model_vars_test)
-# === Confusion Matrix and Misclassification Error ===
-# table(predicted_class, test$Loss.Severity, dnn = c("Predicted","Actual"))
-# 
-# # Same as accuracy?
-# mean(as.character(predicted_class) == as.character(test$Loss.Severity))
+cat(paste("\n\n"))
+paste("The",length(factors.of.interest), "categorical features of interest put through one hot encoding resulted in", dim(training_factor_dummies)[2], "dummy variables to evaluate.")
 
-###########
+low_variance_cols_recent = low_var_dummies(training_factor_dummies)
 
-# multi.logistic.eval is a function that 
-# multi.logistic.eval(predicted_class, test$Loss.Severity)
-# multi.logistic.eval(predicted_class, model_vars_test[,1])
+if (sum(rownames(low_variance_cols_recent) == rownames(low_variance_cols)) == length( rownames(low_variance_cols))) {
+        paste("The complete set of events and the subset of events prior to the previous year have the same set of low or no variance one hot encoded factors.")
+} else {
+        paste("The complete set of events and the subset of events prior to the previous year have a different set of low or no variance one hot encoded factors.")
+}
 
+#======== END: SAME LOW AN NO VARIANCE FACTORS? =====
 # Processing end time
 timeEnd = Sys.time()
 
