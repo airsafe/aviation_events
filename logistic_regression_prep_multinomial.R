@@ -1037,6 +1037,7 @@ sort(regress.vars.numeric)
 #===BASE MODEL CREATION===
 cat(paste("\n\n"))
 paste("===BASE MODEL CREATION===")
+cat(paste("\n\n"))
 
 # Training input includes only regression features
 model_vars_training = training[,regress.vars]
@@ -1057,8 +1058,8 @@ paste("===PREDICTING THE MOST RECENT TWO CALENDAR YEARS===")
 # Unlike the base model prediction algorithm,
 #       the data will be split based on the year of the event, with 
 #       the current year and previous year being in the test set, and
-#       the prior years (1997 until two previous year prior to the current year)
-#       being in the test set. 
+#       the events from prior years (1997 until two previous year prior to the current year)
+#       in the training set. 
 # This approach is based on the assumption that it takes over a year
 #       before it becomes clear, either through offficial investigations,
 #       industry media reports, or privately acquired data, whether an event
@@ -1110,25 +1111,147 @@ cat(paste("\n\n"))
 paste("Events that are predicted to be Major loss")
 sort(recent.test$Event.ID[which(predicted_class=="M")])
 
+#===PREDICTING THE MOST RECENT TWO CALENDAR YEARS LIMITED TRAINING===
+cat(paste("\n\n"))
+paste("===PREDICTING THE MOST RECENT TWO CALENDAR YEARS LIMITED TRAINING===")
+cat(paste("\n\n"))
+# Unlike the base model prediction algorithm,
+#       the data will be split based on the year of the event, with 
+#       the current year and previous year being in the test set, and a portion of the
+#       the events from prior years (1997 until two previous year prior to the current year)
+#       in the training set. 
+# This approach is based on the assumption that using all the events from
+#       1997-2018 will result in an overtrained model
+# In a subsequent version, the numeric features from the test set, rather than scaled as a group,
+#       will have individual values transformed either by subtracting the
+#       mean of that value from the training set or by subtracting the mean
+#       after taking the log of that value.
 
-#======== SAME LOW AND NO VARIANCE FACTORS? =====
-training_factor_dummies = one_hotted_factors(recent.training[,factors.of.interest])
-head(training_factor_dummies)
-names(training_factor_dummies)
-dim(training_factor_dummies)
+# Current year value current.year, as well as recent test (recent.test) are unchanged
+
+# Will train the model using only half the records from 1997-2018, 
+
+#=== SPLITTING THE DATASET PRIOR TO MOST RECENT TWO YEARS ===
+
+set.seed(1968)
+## Randomly sample cases to create independent training and test data, with 70% of the data
+##      dedicated to training and 30% to testing
+
+# Training set will have only half of events prior to most recent two calendar years,
+#       and will be partitioned in a way to maitain the relationship between the 
+#       proportions of Loss.Severity levels (Undamage, Major, and Attrition)
+
+# Before any scaling of the features, the database will be partitioned based on the 
+# prevelance of the label.  
+table(recent.training$Loss.Severity, useNA = "always")
+
+# Will now train the model using 25% of the 1997-2018 events
+partition = createDataPartition(recent.training[,'Loss.Severity'], times = 1, p = 0.25, list = FALSE)
+
+# Create the portion of the training_sample to train the model
+recent.training_b = recent.training[partition,] 
+dim(recent.training_b)
+table(recent.training_b$Loss.Severity, useNA = "always")
+
+
+# Test set will be the events from the last two calendar years (recent.test)
+
+# Will have to rescale this redacted training set 
+recent.training_b$Aircraft.Age.Scaled = scale(recent.training_b$Aircraft.Age)
+recent.training_b$Industry.Maturity.Scaled = scale(log(recent.training_b$Industry.Maturity))
+recent.training_b$Years.Since.Cert.Scaled = scale(log(recent.training_b$Years.Since.Cert))
+
+# No rescaling of recent.test, because it is unchanged from previous analysis
+
+# the regression vector, regress.vars, is unchanged = sort(c("Aircraft.Age.Scaled", "Years.Since.Cert.Scaled", "Industry.Maturity.Scaled", regress.vars))
 
 cat(paste("\n\n"))
-paste("The",length(factors.of.interest), "categorical features of interest put through one hot encoding resulted in", dim(training_factor_dummies)[2], "dummy variables to evaluate.")
+paste("A total of",format(nrow(recent.training_b), digits=5, big.mark = ","), "records were used to train the model.")
 
-low_variance_cols_recent = low_var_dummies(training_factor_dummies)
+cat(paste("\n\n"))
+paste("The test set, which are the relevant events from the previous and current calendar year, has",format(nrow(recent.test), digits=5, big.mark = ","), "records")
 
-if (sum(rownames(low_variance_cols_recent) == rownames(low_variance_cols)) == length( rownames(low_variance_cols))) {
-        paste("The complete set of events and the subset of events prior to the previous year have the same set of low or no variance one hot encoded factors.")
-} else {
-        paste("The complete set of events and the subset of events prior to the previous year have a different set of low or no variance one hot encoded factors.")
-}
+# Training input includes only regression features
+model_vars_training_b = recent.training_b[,regress.vars]
 
-#======== END: SAME LOW AN NO VARIANCE FACTORS? =====
+# Test input (label_and_vars_test and recent.test) is unchanged from previous prediction
+
+# The following function takes as input the vector of training labels, the data frame of the training features,
+#       and a data frame that combines the test labels and test features to create the confusion matrix and associated statistics.
+predicted_class_b = basic_multinom(recent.training_b[,model.label],model_vars_training_b,label_and_vars_test)
+
+# Now for the confusion matrix
+multi.logistic.eval(predicted_class_b, label_and_vars_test[,1]) 
+
+
+# Incorrect prediction review
+
+cat(paste("\n\n"))
+paste("Events that are predicted to be Major loss, and currently coded as Major loss")
+sort(recent.test$Event.ID[which(predicted_class_b=="M" & recent.test$Loss.Severity=="M")])
+
+
+cat(paste("\n\n"))
+paste("Events that are predicted to be Major loss")
+sort(recent.test$Event.ID[which(predicted_class_b=="M")])
+
+
+cat(paste("\n\n"))
+paste("Attrition loss events that were predicted to be Major losses")
+sort(recent.test$Event.ID[which(predicted_class_b=="M" & recent.test$Loss.Severity=="A")])
+
+cat(paste("\n\n"))
+paste("Major loss events that were predicted to be Attrition losses")
+sort(recent.test$Event.ID[which(predicted_class_b=="A" & recent.test$Loss.Severity=="M")])
+
+#===PREDICTING INDIVIDUAL OUTCOMES FROM TWO MOST RECENT CALENDAR YEARS ===
+# One challenge is to take a single event and predict its outcome. To do so,
+#       one transformation that has been used before, normalizing numerical features
+#       from the test set, is not feasible. However, an individual numeric value can be transformed 
+#       based on the scaling done for that feature in the training set.
+
+# There have so far been two types of tranformation, normalization alone
+#       or normalization of the log of the value. For normalization alone, 
+#       the individual numeric feature from a test record will have subtracted
+#       from it the sample mean from test set, and then be divided by the sample
+#       standard deviation. For those feature that were first transformed by the log,
+#       it will then have subtracted from it the mean of the log values from the training feature,
+#       and then be divided by standard deviation of those log values from the training feature.
+
+# Aircraft.Age - scaled only
+# Industry.Maturity and Years.Since.Cert - log then scaled
+
+# Will use the same training and test sets from the previous model, the follo
+#       recent.training_b - training set
+#       recent.test -   test set
+
+recent.test$Aircraft.Age.Scaled = (recent.test$Aircraft.Age -  mean(recent.training_b$Aircraft.Age) )/sd(recent.training_b$Aircraft.Age)
+recent.test$Industry.Maturity.Scaled = (log(recent.test$Industry.Maturity) -  mean(log(recent.training_b$Industry.Maturity)) )/sd(log(recent.training_b$Industry.Maturity))
+recent.test$Years.Since.Cert.Scaled = (log(recent.test$Years.Since.Cert) -  mean(log(recent.training_b$Years.Since.Cert)) )/sd(log(recent.training_b$Years.Since.Cert))
+
+cat(paste("\n\n"))
+paste("A total of",format(nrow(recent.training_b), digits=5, big.mark = ","), "records were used to train the model.")
+
+cat(paste("\n\n"))
+paste("The test set, which are the relevant events from the previous and current calendar year, has",format(nrow(recent.test), digits=5, big.mark = ","), "records")
+
+# The following are unchanged fromt the previous prediction:
+# - Training input data frame (model_vars_training_b and recent.training_b)
+# - Test input data frames (label_and_vars_test and recent.test)
+
+# The following function takes as input the vector of training labels, the data frame of the training features,
+#       and a data frame that combines the test labels and test features to create the confusion matrix and associated statistics.
+predicted_class_c = basic_multinom(recent.training_b[,model.label],model_vars_training_b,label_and_vars_test)
+
+# Now for the confusion matrix
+multi.logistic.eval(predicted_class_c, label_and_vars_test[,1]) 
+
+
+cat(paste("\n\n"))
+paste("Attrition loss events that were predicted to be Major losses")
+sort(recent.test$Event.ID[which(predicted_class_c=="M" & recent.test$Loss.Severity=="A")])
+
+# ===== END MODELING =====
 # Processing end time
 timeEnd = Sys.time()
 
